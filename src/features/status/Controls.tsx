@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { TrackerView } from '../../domain/position';
+import { trackerPolicy } from '../../config/trackerPolicy';
 import { describeRetryBlock } from './format';
 
 export interface ControlsProps {
@@ -51,7 +52,10 @@ export function Controls({ view, follow, onRecenter }: ControlsProps) {
 
       {retryBlocked !== null && (
         <p id={retryReasonId} className="controls__reason" data-testid="retry-reason">
-          Retry unavailable: {describeRetryBlock(retryBlocked, secondsUntilEligible)}
+          {snapshot.transport === 'polling' &&
+          (retryBlocked === 'spacing' || retryBlocked === 'in-flight')
+            ? `Updating automatically every ${trackerPolicy.healthyIntervalMs / 1000} s.`
+            : `Retry unavailable: ${describeRetryBlock(retryBlocked, secondsUntilEligible)}`}
         </p>
       )}
       <p id={recenterNoteId} className="controls__reason" data-testid="follow-state">

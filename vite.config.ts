@@ -2,9 +2,35 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * Production security headers. Applied to `vite preview` so E2E runs against the real policy,
+ * and mirrored in public/_headers for the eventual host. Not applied to the dev server,
+ * which injects <style> elements for hot reload.
+ */
+export const securityHeaders: Record<string, string> = {
+  'Content-Security-Policy': [
+    "default-src 'none'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data: https://tile.openstreetmap.org",
+    'connect-src https://api.wheretheiss.at',
+    "font-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+};
+
 export default defineConfig({
   plugins: [react()],
   server: { port: 5173, strictPort: true },
+  preview: { port: 4173, strictPort: true, headers: securityHeaders },
   build: { sourcemap: false, target: 'es2022' },
   test: {
     restoreMocks: true,

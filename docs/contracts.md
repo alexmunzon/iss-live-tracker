@@ -78,3 +78,14 @@ Only `accept` changes the anchor or the trail. `duplicate` still counts as a val
 ## 8. Ownership
 
 See `docs/phase0-plan.md` §5. Test locations: `tests/unit/domain/` and `tests/unit/data/` (data agent); `tests/unit/ui/` (UI agent); `tests/unit/tracker/` (coordinator); `tests/integration/`, `tests/e2e/`, `tests/fixtures/adversarial/` (QA).
+
+## 9. Amendment G1-v2 (2026-10-11, from the early security review)
+
+Constants live in `trackerPolicy` (moved at G2).
+
+- **Server waits:** every server-requested deadline is `min(max(ordinary, server), serverWaitMaxMs = 1 h)`. `Retry-After` seconds must match `/^\d+$/` and be ≤ `retryAfterMaxSeconds` (86 400); anything else is null. An HTTP-date in the past means 0. Every timer delay is clamped to [0, `maxTimerDelayMs` = 2^31−1]. Every wake re-checks its deadline against the monotonic clock and re-arms if it fired early.
+- **Wrong local clock:** `clockSuspectStreak` (3) consecutive `too-far-future` results → `clockSuspect = true`. `lastFailure` is `invalid-payload / timestamp-implausible` (a stand-in until a dedicated code exists). `olderReanchorStreak` (3) consecutive validated `older` samples, strictly increasing among themselves with the newest within `maxFutureSkewMs` of wall time → re-anchor to the newest and reset the trail.
+- **Client:** Content-Type MIME essence must equal `application/json`. Non-ok bodies are cancelled unread. A null body on 200 → `invalid-json`. UTF-8 is decoded with `fatal: true`, and errors → `invalid-json`. The fetch uses `referrerPolicy: 'no-referrer'`.
+- **Diagnostics:** `detail` comes from a closed set of short codes, never remote content.
+- **UI:** Leaflet HTML sinks are banned (`bindPopup`, `bindTooltip`, `setContent`, `divIcon({html})`). Attribution is built only from `trackerPolicy` constants. No `setAttribute('style')`. When `clockSuspect` is set with no anchor or a future streak, show the "device clock looks wrong" copy. After a wall/monotonic jump with an anchor, show "Time could not be verified" (§4).
+- **useTracker (G2):** an external store owns at most one scheduler. The scheduler is created in an effect and started on the next task, so Strict Mode makes one request. It wires `visibilitychange`, `online` and `offline`. A 1 s display tick recomputes freshness and is cleared on unmount. `App` takes an optional `environment` prop as a test seam only.

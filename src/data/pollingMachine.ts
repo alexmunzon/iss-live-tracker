@@ -22,13 +22,13 @@ import type {
 import { appendTrail, EMPTY_TRAIL } from '../domain/trail';
 
 /** G1-v2: every server-requested wait is capped at 1 hour. */
-export const SERVER_WAIT_MAX_MS = 3_600_000; // G2: move to trackerPolicy
+export const SERVER_WAIT_MAX_MS = trackerPolicy.serverWaitMaxMs;
 /** G1-v2: browsers fire longer setTimeout delays immediately; clamp every delay. */
-export const MAX_TIMER_DELAY_MS = 2_147_483_647; // G2: move to trackerPolicy
+export const MAX_TIMER_DELAY_MS = trackerPolicy.maxTimerDelayMs;
 /** G1-v2: consecutive too-far-future results that mark the local clock suspect. */
-export const CLOCK_SUSPECT_STREAK = 3; // G2: move to trackerPolicy
+export const CLOCK_SUSPECT_STREAK = trackerPolicy.clockSuspectStreak;
 /** G1-v2: consecutive self-consistent 'older' results that force a re-anchor. */
-export const OLDER_REANCHOR_STREAK = 3; // G2: move to trackerPolicy
+export const OLDER_REANCHOR_STREAK = trackerPolicy.olderReanchorStreak;
 
 /** Closed set of diagnostic details. Never remote content. Each ≤ 40 characters. */
 type DiagnosticDetail =

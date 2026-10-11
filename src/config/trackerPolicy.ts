@@ -21,6 +21,16 @@ export const trackerPolicy = {
   jitterFraction: 0.2,
   /** 429 without a readable valid Retry-After waits at least this long. */
   rateLimitMinWaitMs: 60_000,
+  /** G1-v2: every server-requested wait is capped at 1 hour. */
+  serverWaitMaxMs: 3_600_000,
+  /** G1-v2: Retry-After seconds above this are ignored as invalid. */
+  retryAfterMaxSeconds: 86_400,
+  /** G1-v2: browsers fire longer setTimeout delays immediately; every delay is clamped to this. */
+  maxTimerDelayMs: 2_147_483_647,
+  /** G1-v2: consecutive too-far-future samples that mark the local clock suspect. */
+  clockSuspectStreak: 3,
+  /** G1-v2: consecutive self-consistent older samples that force a re-anchor. */
+  olderReanchorStreak: 3,
   /** HTTP statuses that stop automatic retry (configuration/access problem). */
   blockingStatuses: [401, 403, 404] as const,
 

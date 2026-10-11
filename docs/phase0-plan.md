@@ -97,6 +97,20 @@ G0 owner approves this plan → git init + scaffold + **browser spike from `http
 | OSM policy breach                                                                | Visible attribution link, browser caching, `strict-origin-when-cross-origin` referrer, no prefetch, tiles intercepted in CI | A14, A16           |
 | Agent overreach                                                                  | Plan mode first, owner approval for deps, deploys, pushes, accounts                                                         | Process            |
 
+**Added after the early security review (G1-v2):**
+
+| Threat                                      | Control                                                                     | Evidence (ID)     |
+| ------------------------------------------- | --------------------------------------------------------------------------- | ----------------- |
+| Clickjacking                                | `frame-ancestors 'none'` as a response header (D11)                         | A16               |
+| Host can't set headers                      | Hosting requirement D11                                                     | Deployment review |
+| Leaflet internal HTML sinks                 | Lint bans, attribution from constants                                       | A16               |
+| Timer overflow / unbounded server wait      | 1 h cap, delay clamp, wake re-check                                         | A08               |
+| Wrong local clock → outage or frozen marker | Future streak → clock warning; older streak → re-anchor                     | A05, A08          |
+| CI pipeline                                 | `npm ci`, no secrets, pinned action SHAs (when CI is added)                 | Release review    |
+| Post-launch supply chain                    | Lockfile review on every dependency change; periodic `npm audit`            | Release review    |
+| HTTPS / DNS takeover                        | HSTS on host; remove DNS records if the site is retired                     | Deployment review |
+| OSM compromise or blocking                  | Tiles are images only (no script); map-unavailable state keeps text working | A13               |
+
 ## 8. Acceptance ledger (all NOT RUN)
 
 A01–A20 exactly as defined in the coordinator prompt. A18 is excluded unless the trail is approved. A20 has two parts: local-origin browser check (after G0) and real-origin check (only after an approved deployment).

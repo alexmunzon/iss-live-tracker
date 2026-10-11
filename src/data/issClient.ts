@@ -12,7 +12,7 @@ import type {
 import { validatePosition } from '../domain/validatePosition';
 
 /** G1-v2: largest accepted seconds-form Retry-After (1 day). */
-export const RETRY_AFTER_MAX_SECONDS = 86_400; // G2: move to trackerPolicy
+export const RETRY_AFTER_MAX_SECONDS = trackerPolicy.retryAfterMaxSeconds;
 
 // ---------------------------------------------------------------------------
 // HTTP-date parsing (RFC 9110 §5.6.7). Strict on purpose: Date.parse accepts far too much

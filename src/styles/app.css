@@ -247,3 +247,28 @@ a {
   cursor: not-allowed;
   opacity: 0.55;
 }
+
+/* Footer: privacy and data note (G2, coordinator). */
+.tracker-footer {
+  max-width: 72ch;
+  padding: 0 var(--space-4) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+.tracker-footer summary {
+  min-height: var(--target);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.tracker-footer summary:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.tracker-footer p {
+  margin: 0 0 var(--space-3);
+}
+.tracker-footer a {
+  color: var(--color-accent);
+}
