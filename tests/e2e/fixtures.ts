@@ -5,7 +5,7 @@
 //  - tiles from tile.openstreetmap.org fulfilled with a local 256×256 PNG (or failed on demand).
 //  - a network guard: any other non-local request is aborted and fails the test.
 //  - a paused Playwright clock at T0 (2026-10-11T14:01:23Z); time moves only via `advance`.
-//  - CSP violation capture (asserted only when the document sends a CSP header).
+//  - CSP violation capture; the document must send a CSP header (missing header = failure).
 //  - dialog capture (any alert/confirm = injection executed = failure).
 //
 // ASSUMPTIONS (coordinator to freeze/align):
@@ -219,13 +219,14 @@ export const test = base.extend<Fixtures>({
 
     expect(unexpectedRequests, 'unexpected external requests').toEqual([]);
     expect(dialogs, 'a dialog opened: injected script executed').toEqual([]);
-    if (documentCsp !== null) {
-      const fromPage = await page
-        .evaluate(() => (window as unknown as { __qaCsp?: string[] }).__qaCsp ?? [])
-        .catch(() => [] as string[]);
-      expect(cspConsole, 'CSP console violations').toEqual([]);
-      expect(fromPage, 'CSP securitypolicyviolation events').toEqual([]);
-    }
+    // A16: the production document must carry a CSP (D11), so a missing header fails here
+    // instead of silently skipping the violation checks below.
+    expect(documentCsp, 'document response had no Content-Security-Policy header').not.toBeNull();
+    const fromPage = await page
+      .evaluate(() => (window as unknown as { __qaCsp?: string[] }).__qaCsp ?? [])
+      .catch(() => [] as string[]);
+    expect(cspConsole, 'CSP console violations').toEqual([]);
+    expect(fromPage, 'CSP securitypolicyviolation events').toEqual([]);
   },
 });
 
