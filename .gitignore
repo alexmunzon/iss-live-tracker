@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.vite/
+*.log
+.DS_Store
+# secrets: none are needed, but never commit env files
+.env
+.env.*
+!.env.example
