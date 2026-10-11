@@ -62,17 +62,60 @@ test.describe('map', () => {
     }
   });
 
-  test('A12 zoom by the user is kept when following', async ({ page, tracker }) => {
+  test('A12 zoom by the user is kept when following', async ({ page, tracker, iss }) => {
+    // Every sample moves the ISS 1° north, so the 10 s window below really applies new data.
+    let served = 0;
+    iss.setFallback((now) => {
+      const lat = 10 + served;
+      served += 1;
+      return json(position({ timestamp: Math.floor(now / 1000), latitude: lat, longitude: 10 }));
+    });
     await tracker.open();
     await expect(tracker.marker()).toBeVisible();
-    const zoomIn = page.getByRole('button', { name: /zoom in/i });
-    await zoomIn.click();
-    await tracker.advance(1_000);
-    const tileBefore = await page.locator('.leaflet-tile').first().getAttribute('src');
-    await tracker.advance(10_000);
-    const tileAfter = await page.locator('.leaflet-tile').first().getAttribute('src');
-    const zoomOf = (src: string | null) => src?.match(/org\/(\d+)\//)?.[1];
-    expect(zoomOf(tileAfter)).toBe(zoomOf(tileBefore));
+
+    // Zoom level of every tile in the DOM, read from the tile URL (/{z}/{x}/{y}.png).
+    // Leaflet keeps the previous level's tiles until the new ones have loaded AND its
+    // fake-clock-driven fade/prune has run, so a single tile read straight after a zoom can
+    // show the old level. Settle by advancing the page clock until every tile shares one level.
+    const tileLevels = async () => {
+      const levels = await page
+        .locator('.leaflet-tile')
+        .evaluateAll((els) =>
+          els.map(
+            (e) =>
+              e.getAttribute('src')?.match(/^https:\/\/tile\.openstreetmap\.org\/(\d+)\//)?.[1] ??
+              'none',
+          ),
+        );
+      return [...new Set(levels)].sort();
+    };
+    const settledLevels = async () => {
+      await tracker.advance(250);
+      return tileLevels();
+    };
+    let initial: string[] = [];
+    await expect
+      .poll(async () => (initial = await settledLevels()).length, { timeout: 10_000 })
+      .toBe(1);
+    expect(initial[0]).toMatch(/^\d+$/);
+    const zoomed = String(Number(initial[0]) + 1);
+
+    await page.getByRole('button', { name: /zoom in/i }).click();
+    // Zoom-in really happened: every tile moves to exactly one level deeper.
+    await expect.poll(settledLevels, { timeout: 10_000 }).toEqual([zoomed]);
+
+    // 10 s of data updates must not change the user's zoom, not even transiently.
+    const servedBefore = served;
+    for (let i = 0; i < 20; i += 1) {
+      await tracker.advance(500);
+      expect(await tileLevels(), `tile levels ${(i + 1) * 500} ms into the data window`).toEqual([
+        zoomed,
+      ]);
+    }
+    expect(served - servedBefore, 'new samples during the 10 s window').toBeGreaterThanOrEqual(1);
+    await expect(page.getByText(fmt.lat(`${10 + served - 1}.00`, 'N')).first()).toBeVisible();
+    // And it is still that level once everything has settled.
+    await expect.poll(settledLevels, { timeout: 10_000 }).toEqual([zoomed]);
   });
 
   test('antimeridian crossing: one marker, no world copies', async ({ page, tracker, iss }) => {
@@ -86,5 +129,26 @@ test.describe('map', () => {
     await expect(
       page.locator('[data-testid="iss-marker"], .leaflet-marker-pane > .leaflet-marker-icon'),
     ).toHaveCount(1);
+  });
+
+  test('A11 westward antimeridian crossing: one marker, no world copies', async ({
+    page,
+    tracker,
+    iss,
+  }) => {
+    iss.queue(
+      json(position({ timestamp: 1791727283, latitude: -20, longitude: -179.5 })),
+      json(position({ timestamp: 1791727288, latitude: -20.1, longitude: 179.5 })),
+    );
+    const markers = page.locator(
+      '[data-testid="iss-marker"], .leaflet-marker-pane > .leaflet-marker-icon',
+    );
+    await tracker.open();
+    await expect(page.getByText(fmt.lon('179.50', 'W')).first()).toBeVisible();
+    await expect(markers).toHaveCount(1);
+    await tracker.advance(5_000);
+    await expect(page.getByText(fmt.lon('179.50', 'E')).first()).toBeVisible();
+    await expect(page.getByText(fmt.lon('179.50', 'W'))).toHaveCount(0);
+    await expect(markers).toHaveCount(1);
   });
 });

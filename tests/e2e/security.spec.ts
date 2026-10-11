@@ -69,11 +69,62 @@ test.describe('A16 security', () => {
       expect(u).toMatch(/^https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png$/);
   });
 
-  // CSP violations are asserted in the shared fixture teardown, active only when the
-  // document response carries a content-security-policy header (added at integration).
-  test('CSP: a full session produces no violations (when CSP is present)', async ({ tracker }) => {
+  // CSP violations are asserted in the shared fixture teardown, which also fails when the
+  // document response carries no content-security-policy header.
+  test('CSP: a full session produces no violations', async ({ tracker }) => {
     await tracker.open();
     await expect(tracker.marker()).toBeVisible();
     await tracker.advance(11_000);
+  });
+
+  // D11 + README "Deploy" header list. `vite preview` serves the production header set.
+  test('production document carries the D11 security headers', async ({
+    page,
+    tracker,
+    baseURL,
+  }) => {
+    const appOrigin = new URL(baseURL ?? 'http://localhost:4173').origin;
+    const documentResponse = page.waitForResponse(
+      (r) =>
+        r.request().resourceType() === 'document' &&
+        r.url().startsWith(appOrigin) &&
+        new URL(r.url()).pathname === '/',
+    );
+    await tracker.open();
+    const res = await documentResponse;
+    expect(res.status()).toBe(200);
+
+    const cspHeaders = (await res.headersArray()).filter(
+      (h) => h.name.toLowerCase() === 'content-security-policy',
+    );
+    expect(cspHeaders, 'exactly one Content-Security-Policy header').toHaveLength(1);
+    const csp = cspHeaders[0]?.value ?? '';
+    expect(csp).not.toMatch(/unsafe-inline|unsafe-eval/i);
+
+    const directives = new Map<string, string[]>();
+    for (const part of csp.split(';')) {
+      const [name, ...values] = part.trim().split(/\s+/);
+      if (!name) continue;
+      expect(directives.has(name.toLowerCase()), `duplicate directive ${name}`).toBe(false);
+      directives.set(name.toLowerCase(), values);
+    }
+    const expected: Record<string, string[]> = {
+      'default-src': ["'none'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'"],
+      'img-src': ["'self'", 'data:', 'https://tile.openstreetmap.org'],
+      'connect-src': ['https://api.wheretheiss.at'],
+      'object-src': ["'none'"],
+      'base-uri': ["'none'"],
+      'form-action': ["'none'"],
+      'frame-ancestors': ["'none'"],
+    };
+    for (const [name, values] of Object.entries(expected)) {
+      expect(directives.get(name), `CSP ${name}`).toEqual(values);
+    }
+
+    const headers = await res.allHeaders();
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   });
 });
