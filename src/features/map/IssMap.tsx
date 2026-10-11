@@ -149,6 +149,8 @@ export function IssMapCore({
     tiles.addTo(map);
     createAttributionControl().addTo(map);
     trailRef.current = L.layerGroup().addTo(map);
+    // The overlay pane holds only the decorative trail SVG (the status panel already states it).
+    map.getPane('overlayPane')?.setAttribute('aria-hidden', 'true');
 
     const userMoved = () => callbacksRef.current.onUserMoved();
     const onZoomStart = () => {
