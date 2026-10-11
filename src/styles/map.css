@@ -122,3 +122,11 @@
     transition: none !important;
   }
 }
+
+/* Each Leaflet tile is its own GPU layer. When the map sits at a fractional page offset (from
+   line heights above it), those layers land on different device pixels and leave hairline
+   seams on high-DPI screens. Giving the container its own layer keeps the tiles pixel-aligned
+   with each other. */
+.leaflet-container {
+  will-change: transform;
+}

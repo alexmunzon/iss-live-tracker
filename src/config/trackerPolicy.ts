@@ -37,6 +37,12 @@ export const trackerPolicy = {
   /** Freshness is product policy, not an accuracy claim. age <= 15 s fresh; <= 60 s delayed; else stale. */
   freshMaxAgeMs: 15_000,
   delayedMaxAgeMs: 60_000,
+  /**
+   * Samples at most this far ahead of local time count as on time (no skew warning, can be fresh).
+   * The provider's timestamp has 1 s resolution and device clocks drift slightly, so a real,
+   * current sample often arrives up to ~1 s "in the future" (observed live, 2026-10-11).
+   */
+  futureSkewToleranceMs: 2_000,
   /** A sample up to 30 s in the future is kept with a clock-skew warning; beyond that it is rejected. */
   maxFutureSkewMs: 30_000,
   /** Wall vs monotonic elapsed-time mismatch beyond this marks freshness unverified. */

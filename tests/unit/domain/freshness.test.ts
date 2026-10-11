@@ -136,3 +136,28 @@ describe('A05 computeFreshness', () => {
     expect(after.state).not.toBe('fresh');
   });
 });
+
+describe('A05 future-skew tolerance (D16, live finding 2026-10-11)', () => {
+  it('a sample 1 s ahead (1-second timestamp resolution) is fresh with no clock warning', () => {
+    const env = new FakeEnv();
+    const anchor = createAnchor(sample({ positionTimeMs: env.wall + 1_000 }), env.clock);
+    expect(anchor.futureSkew).toBe(false);
+    expect(anchor.sourceAgeAtReceiptMs).toBe(0);
+    expect(computeFreshness(anchor, env.clock)).toEqual({
+      state: 'fresh',
+      ageMs: 0,
+      clockWarning: null,
+    });
+  });
+
+  it('exactly 2000 ms ahead is still on time; 2001 ms ahead is future-skewed and never fresh', () => {
+    const env = new FakeEnv();
+    expect(createAnchor(sample({ positionTimeMs: env.wall + 2_000 }), env.clock).futureSkew).toBe(
+      false,
+    );
+    const skewed = createAnchor(sample({ positionTimeMs: env.wall + 2_001 }), env.clock);
+    expect(skewed.futureSkew).toBe(true);
+    expect(computeFreshness(skewed, env.clock).state).toBe('delayed');
+    expect(computeFreshness(skewed, env.clock).clockWarning).toBe('future-skew');
+  });
+});

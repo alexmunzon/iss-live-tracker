@@ -34,7 +34,7 @@ export function createAnchor(sample: PositionSample, clock: Clock): FreshnessAnc
     anchorWallMs: wallNow,
     anchorMonoMs: monoNow,
     sourceAgeAtReceiptMs: Math.max(0, wallNow - sample.positionTimeMs),
-    futureSkew: sample.positionTimeMs > wallNow,
+    futureSkew: sample.positionTimeMs > wallNow + trackerPolicy.futureSkewToleranceMs,
   };
 }
 
