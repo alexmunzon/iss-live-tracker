@@ -42,7 +42,7 @@ The commit history shows those stages (`G1` contracts → `DATA-1`, `UI-1`, `QA-
 
 ## Engineering details
 
-Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. See `docs/qa-evidence.md` for the current ledger. The app has not been deployed.
+Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. Current status: **Locally verified** (see `docs/qa-evidence.md`). The app has not been deployed yet.
 
 ### Setup
 

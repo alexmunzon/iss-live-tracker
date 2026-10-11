@@ -4,12 +4,12 @@
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Task                         | ISS Live Tracker: release prep (finish and polish, no new features)                                                                   |
 | Role                         | Coordinator (claude-opus-5-5)                                                                                                         |
-| Status                       | IMPLEMENTED. G2 integrated on `main` (`3f5ae9f`). Release prep on branch `release-prep`.                                              |
+| Status                       | LOCALLY VERIFIED at candidate `f09c312` (not deployed). Manual checks listed in `docs/qa-evidence.md` are NOT RUN.                    |
 | Contract version             | G1-v2 + D16 (`docs/contracts.md`)                                                                                                     |
 | Writers                      | Owner lifted the 3-writer cap (D17); one writer per file still applies                                                                |
-| Active work                  | QA-2 merged at `af45dec`; candidate freeze and final independent review                                                               |
-| Candidate SHA / build digest | PENDING FREEZE (after QA-2 is merged)                                                                                                 |
-| Pre-freeze review            | Security review of production code at `d65f460`: APPROVED, one Low accepted (D18)                                                     |
+| Active work                  | None. Waiting for owner approval to create the public repo.                                                                           |
+| Candidate SHA / build digest | `f09c312f52eea3a06ec5e7dae3def0fb5d75b988` / `66bd8aa13534788b08f99428d1a4d5265cee30b349935845fd43e7fee23c7a82`                       |
+| Final review                 | QA execution 87/87 + 435/435 stress (3 browsers); fresh-clone reproducible build; security re-check APPROVED (one Low accepted, D18)  |
 | Owner decisions              | Public repo `alexmunzon/iss-live-tracker` (not created), Vercel hosting (not deployed), trail in scope, browser/a11y/privacy defaults |
 | Pending owner approvals      | Create the public GitHub repo and push `main`; deploy to Vercel; merge any PR                                                         |
 | Acceptance IDs               | See `docs/qa-evidence.md`. A20 local-origin PASS; A20 real-origin NOT RUN (not deployed)                                              |
