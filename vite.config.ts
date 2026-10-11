@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react';
 
 /**
  * Production security headers. Applied to `vite preview` so E2E runs against the real policy,
- * and mirrored in public/_headers for the eventual host. Not applied to the dev server,
+ * and mirrored in vercel.json for production (tests/unit/config/hostHeaders.test.ts keeps
+ * them in sync). Not applied to the dev server,
  * which injects <style> elements for hot reload.
  */
 export const securityHeaders: Record<string, string> = {
