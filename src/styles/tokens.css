@@ -1,0 +1,56 @@
+/* Design tokens. Light by default, dark via prefers-color-scheme. */
+:root {
+  color-scheme: light dark;
+
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --color-bg: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-text: #1b1f24;
+  --color-text-muted: #545c66;
+  --color-border: #d5dade;
+  --color-accent: #0b5cad;
+  --color-accent-contrast: #ffffff;
+  --color-focus: #0b5cad;
+
+  --color-ok-bg: #e5f3ea;
+  --color-ok-text: #145c2e;
+  --color-warn-bg: #fff4d6;
+  --color-warn-text: #6b4600;
+  --color-danger-bg: #fde8e7;
+  --color-danger-text: #8a1c14;
+  --color-info-bg: #eaf1f9;
+  --color-info-text: #1d3f66;
+
+  --radius: 6px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --target: 44px;
+  --map-height-mobile: 56vh;
+  --map-height-min: 320px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121417;
+    --color-surface: #1b1f24;
+    --color-text: #e8eaed;
+    --color-text-muted: #a7afb8;
+    --color-border: #343a42;
+    --color-accent: #6cb2ff;
+    --color-accent-contrast: #0b1724;
+    --color-focus: #8cc4ff;
+
+    --color-ok-bg: #173323;
+    --color-ok-text: #9fdcb3;
+    --color-warn-bg: #3a2e10;
+    --color-warn-text: #f5d58a;
+    --color-danger-bg: #3d1a17;
+    --color-danger-text: #f6b4ad;
+    --color-info-bg: #18283b;
+    --color-info-text: #b6d3f2;
+  }
+}

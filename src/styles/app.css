@@ -1,0 +1,249 @@
+/* App layout and status panel. Import after tokens.css. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Layout ------------------------------------------------------------ */
+
+.tracker-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.tracker-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.tracker-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.tracker-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.tracker-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.tracker-map {
+  height: var(--map-height-mobile);
+  min-height: var(--map-height-min);
+}
+
+@media (min-width: 900px) {
+  .tracker-main {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .tracker-map {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+
+  .tracker-status {
+    flex: 0 0 340px;
+  }
+}
+
+/* ---- Status panel ------------------------------------------------------ */
+
+.status-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.status-panel__title {
+  margin: 0 0 var(--space-3);
+  font-size: 1.05rem;
+}
+
+.status-list {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.status-list__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.status-list dt {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.status-list dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-list__coords {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.status-list__warn {
+  color: var(--color-warn-text);
+}
+
+.status-list__detail {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.status-badge--fresh {
+  background: var(--color-ok-bg);
+  color: var(--color-ok-text);
+}
+
+.status-badge--delayed,
+.status-badge--unverified {
+  background: var(--color-warn-bg);
+  color: var(--color-warn-text);
+}
+
+.status-badge--stale {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.notice {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: 0.925rem;
+}
+
+.notice--warning {
+  background: var(--color-warn-bg);
+  color: var(--color-warn-text);
+}
+
+.notice--info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.status-list + .notice {
+  margin-top: var(--space-3);
+}
+
+.status-panel__note,
+.status-panel__credit {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* ---- Controls ---------------------------------------------------------- */
+
+.controls {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.controls__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.controls__reason {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.button {
+  min-height: var(--target);
+  min-width: var(--target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.button--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
