@@ -1,16 +1,18 @@
 # Agent state
 
-| Field                        | Value                                                                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Task                         | ISS Live Tracker MVP                                                                                             |
-| Role                         | Coordinator (claude-opus-5-5, Claude Code 2.1.289)                                                               |
-| Status                       | G0 approved by owner 2026-10-11 ("approved, start setup"). G1 frozen; see the git log for the base SHA.          |
-| Contract version             | G1-v1 (`docs/contracts.md`)                                                                                      |
-| Accepted base SHA            | the G1 commit (`git log --grep "G1:"`)                                                                           |
-| Candidate SHA / build digest | none yet                                                                                                         |
-| Owner decisions              | Public project; trail included (A18 in scope); stray folder deleted; browser/a11y/privacy defaults               |
-| Pending owner decisions      | Hosting target and deployment (later, separate approval)                                                         |
-| Acceptance IDs               | A01–A19 NOT RUN. A20 local-origin part: PASS (evidence below). A20 real-origin part: NOT RUN (needs deployment). |
+| Field                        | Value                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Task                         | ISS Live Tracker: release prep (finish and polish, no new features)                                                                   |
+| Role                         | Coordinator (claude-opus-5-5)                                                                                                         |
+| Status                       | IMPLEMENTED. G2 integrated on `main` (`3f5ae9f`). Release prep on branch `release-prep`.                                              |
+| Contract version             | G1-v2 + D16 (`docs/contracts.md`)                                                                                                     |
+| Writers                      | Owner lifted the 3-writer cap (D17); one writer per file still applies                                                                |
+| Active work                  | QA-2 merged at `af45dec`; candidate freeze and final independent review                                                               |
+| Candidate SHA / build digest | PENDING FREEZE (after QA-2 is merged)                                                                                                 |
+| Pre-freeze review            | Security review of production code at `d65f460`: APPROVED, one Low accepted (D18)                                                     |
+| Owner decisions              | Public repo `alexmunzon/iss-live-tracker` (not created), Vercel hosting (not deployed), trail in scope, browser/a11y/privacy defaults |
+| Pending owner approvals      | Create the public GitHub repo and push `main`; deploy to Vercel; merge any PR                                                         |
+| Acceptance IDs               | See `docs/qa-evidence.md`. A20 local-origin PASS; A20 real-origin NOT RUN (not deployed)                                              |
 
 ## A20 local evidence — browser spike
 
