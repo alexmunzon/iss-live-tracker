@@ -5,14 +5,14 @@ Prepared: 2026-10-11 by the coordinator session.
 
 ## 1. Environment (recorded, not assumed)
 
-| Item             | Value                                                    | Check                                       |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------- |
-| Provider / model | Anthropic, `claude-opus-5-5` (this coordinator session)  | Session model ID                            |
-| Claude Code      | 2.1.289                                                  | `claude --version`; required ≥ 2.1.280 → OK |
-| Node / npm       | v24.16.0 / 11.13.0                                       | `node --version`, `npm --version`           |
-| Git              | 2.50.1                                                   | `git --version`                             |
-| Project folder   | `/Users/alexmunzon/satellite` (created empty 2026-10-11) | `ls -la`                                    |
-| Stray folder     | `/Users/alexmunzon/satellite ` (trailing space, empty)   | Not touched; owner to decide                |
+| Item             | Value                                                   | Check                                       |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------- |
+| Provider / model | Anthropic, `claude-opus-5-5` (this coordinator session) | Session model ID                            |
+| Claude Code      | 2.1.289                                                 | `claude --version`; required ≥ 2.1.280 → OK |
+| Node / npm       | v24.16.0 / 11.13.0                                      | `node --version`, `npm --version`           |
+| Git              | 2.50.1                                                  | `git --version`                             |
+| Project folder   | `~/satellite` (created empty 2026-10-11)                | `ls -la`                                    |
+| Stray folder     | `~/satellite ` (trailing space, empty)                  | Deleted at owner request (2026-10-11)       |
 
 ## 2. Source facts — HTTP probe (curl, not a browser test)
 
