@@ -15,7 +15,8 @@
 //      latitude /45\.01\s*°?\s*N/, longitude /18\.40\s*°?\s*W/, UTC time /14:01:23/ + /UTC/,
 //      provider /Where the ISS at/, empty /waiting|loading|getting|no position/i,
 //      stale /stale|out of date|old/i, retrying /retrying|trying again/i,
-//      wrong clock /device clock/i (G1-v2), trail note "Observed during this session".
+//      clock mismatch with a sample /time could not be verified/i (§4); G1-v2 /device clock/i
+//      is only for clockSuspect without an anchor or a future-sample streak; trail note "Observed during this session".
 //  S5. Buttons are <button> with accessible names /pause/i, /resume/i, /retry/i,
 //      /recenter/i. Retry while not eligible is `disabled` or aria-disabled="true".
 //  S6. The live region is the element(s) with aria-live="polite" (or role="status").
@@ -195,12 +196,15 @@ describe('App integration (jsdom)', () => {
     expect(container.textContent).not.toMatch(/onerror|<img|<script/);
   });
 
-  it('G1-v2 wall-clock jump shows the device-clock warning', async () => {
+  it('A05 wall-clock jump after a sample: time unverified, never fresh (contracts §4)', async () => {
     const { container } = render(<App />);
     await advance(1_000);
     vi.setSystemTime(Date.now() - 3_600_000); // wall jumps back 1 h; performance.now does not
     await advance(5_000);
-    expect(container.textContent).toMatch(/device clock/i);
+    // §4: wall/monotonic mismatch → 'unverified'; UI shows provider time + "Time could not be verified".
+    expect(container.textContent).toMatch(/time could not be verified/i);
+    expect(container.textContent).toMatch(/14:01:2\d/);
+    expect(container.textContent).not.toMatch(/Data:\s*Fresh/i);
   });
 
   it('A17 unmount stops everything: no timers, no further requests', async () => {
