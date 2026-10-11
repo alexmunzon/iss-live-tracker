@@ -4,7 +4,7 @@
 
 **Where the International Space Station is right now, and an honest answer to "how old is that position?"**
 
-**Live demo:** _coming soon (deployment pending)_
+**Live demo:** **[iss-live-tracker-ecru.vercel.app](https://iss-live-tracker-ecru.vercel.app)**
 
 ![ISS Live Tracker: world map with the ISS marker and a status panel showing a Fresh position, its UTC calculation time, age and connection state](docs/images/desktop-light.png)
 
@@ -42,7 +42,7 @@ The commit history shows those stages (`G1` contracts → `DATA-1`, `UI-1`, `QA-
 
 ## Engineering details
 
-Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. Current status: **Locally verified** (see `docs/qa-evidence.md`). The app has not been deployed yet.
+Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. Current status: **Deployed and verified** on Vercel (see `docs/qa-evidence.md` for the live-site checks). Every merge to `main` redeploys automatically.
 
 ### Setup
 
@@ -103,7 +103,9 @@ Your browser requests positions from `api.wheretheiss.at` and map images from `t
 - About 6 open tabs sharing one network IP would exceed the provider's limit of 350 requests per 5 minutes.
 - OpenStreetMap's public tiles have no SLA and can be blocked without notice. When tiles fail, the text panel keeps working.
 
-### Deployment (not done; needs owner approval)
+### Deployment
+
+Hosted on Vercel, linked to this repository: every push to `main` builds and deploys with `vercel.json`. To host elsewhere:
 
 1. Pick a static host that supports **custom response headers** (D11).
 2. `npm ci && npm run check && npm run test:e2e`, then upload `dist/`.

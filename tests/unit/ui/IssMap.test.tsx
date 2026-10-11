@@ -313,4 +313,23 @@ describe('IssMap', () => {
     expect(icon?.innerHTML).toBe('');
     expect(icon).toHaveAttribute('aria-hidden', 'true');
   });
+
+  it('UI-2: the decorative trail SVG is hidden from assistive technology', () => {
+    const { container } = render(
+      <IssMap
+        {...props({
+          trailSegments: [
+            [
+              [1, 2],
+              [3, 4],
+            ],
+          ],
+        })}
+      />,
+    );
+    const path = container.querySelector('path.iss-trail');
+    expect(path).not.toBeNull();
+    expect(path?.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByRole('region', { name: /map of the iss position/i })).toBeInTheDocument();
+  });
 });
