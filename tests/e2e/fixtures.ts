@@ -196,6 +196,9 @@ export const test = base.extend<Fixtures>({
       tiles,
       open: async () => {
         await page.goto('/');
+        // The app starts its scheduler with setTimeout(0) (Strict Mode safe). With the clock
+        // paused, advance a little so the first request is deterministic before any assertion.
+        await tracker.advance(100, 50);
       },
       advance: async (ms, stepMs = 500) => {
         let left = ms;
@@ -242,8 +245,8 @@ export const copy = {
   stale: /stale|out of date|\bold\b/i,
   retrying: /retrying|trying again/i,
   mapUnavailable:
-    /map (is )?(unavailable|not available|could not|couldn.t|failed)|map tiles? (failed|unavailable|could not|couldn.t)/i,
-  deviceClock: /device clock/i,
+    /map (is )?(unavailable|not available|could not|couldn.t|failed)|map tiles? (failed|unavailable|could not|couldn.t)|map (images|tiles) (are )?not loading/i,
+  deviceClock: /device.{0,2}s? clock/i,
   trailNote: 'Observed during this session.',
   provider: /Where the ISS at/,
   osm: /OpenStreetMap contributors/,

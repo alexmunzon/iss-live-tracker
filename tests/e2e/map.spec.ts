@@ -15,7 +15,10 @@ test.describe('map', () => {
   });
 
   test('A12 drag disables follow; Recenter restores it', async ({ page, tracker, iss }) => {
-    iss.queue(json(position({ timestamp: 1791727283, latitude: 10, longitude: 10 })));
+    // Every request returns the *current* position at the current time, so a later request
+    // can never supersede the position under test with a different one.
+    let current = { latitude: 10, longitude: 10 };
+    iss.setFallback((now) => json(position({ timestamp: Math.floor(now / 1000), ...current })));
     await tracker.open();
     await expect(tracker.marker()).toBeVisible();
     await tracker.advance(1_000); // let any pan animation finish
@@ -37,9 +40,10 @@ test.describe('map', () => {
     await expect.poll(() => near(40)).toBe(false);
 
     // A new sample must NOT pull the map back while follow is off.
-    iss.queue(json(position({ timestamp: 1791727290, latitude: 11, longitude: 11 })));
+    current = { latitude: 11, longitude: 11 };
     await tracker.advance(6_000);
     await expect(page.getByText(fmt.lat('11.00', 'N')).first()).toBeVisible();
+    await tracker.advance(1_000);
     await expect.poll(() => near(40)).toBe(false);
 
     // Recenter re-enables follow and pans to the marker.
@@ -47,12 +51,15 @@ test.describe('map', () => {
     await tracker.advance(1_000);
     await expect.poll(() => near(40)).toBe(true);
 
-    // And follow stays on for the next sample.
-    iss.queue(json(position({ timestamp: 1791727296, latitude: 13, longitude: 13 })));
-    await tracker.advance(6_000);
-    await expect(page.getByText(fmt.lat('13.00', 'N')).first()).toBeVisible();
-    await tracker.advance(1_000);
-    await expect.poll(() => near(40)).toBe(true);
+    // Follow stays on after Recenter (its programmatic pan/zoom must not count as a user move):
+    // two further samples both keep the marker centred.
+    for (const lat of [13, 15]) {
+      current = { latitude: lat, longitude: lat };
+      await tracker.advance(6_000);
+      await expect(page.getByText(fmt.lat(`${lat}.00`, 'N')).first()).toBeVisible();
+      await tracker.advance(1_000);
+      await expect.poll(() => near(40)).toBe(true);
+    }
   });
 
   test('A12 zoom by the user is kept when following', async ({ page, tracker }) => {

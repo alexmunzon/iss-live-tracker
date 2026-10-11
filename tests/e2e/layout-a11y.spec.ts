@@ -40,6 +40,8 @@ test.describe('A15 accessibility', () => {
   test('axe: no WCAG 2.2 AA violations in the fresh state', async ({ page, tracker }) => {
     await tracker.open();
     await expect(tracker.marker()).toBeVisible();
+    // axe-core schedules work with setTimeout; the paused fake clock would stall it.
+    await page.clock.resume();
     const result = await axe(page).withTags(WCAG_TAGS).analyze();
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
@@ -54,6 +56,8 @@ test.describe('A15 accessibility', () => {
     iss.setFallback(() => ({ status: 503, body: 'down' }));
     await tracker.advance(61_000);
     await expect(page.getByText(copy.stale).first()).toBeVisible();
+    // axe-core schedules work with setTimeout; the paused fake clock would stall it.
+    await page.clock.resume();
     const result = await axe(page).withTags(WCAG_TAGS).analyze();
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
