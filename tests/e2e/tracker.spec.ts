@@ -80,7 +80,23 @@ test.describe('tracking flows', () => {
     await expect(tracker.marker()).toHaveCount(0);
   });
 
-  test('G1-v2 device clock far behind provider time: clock warning, never fresh', async ({
+  test('G1-v2 three consecutive samples > 30 s in the future: device clock warning, no position', async ({
+    page,
+    tracker,
+    iss,
+  }) => {
+    // Each sample is 120 s ahead of the page clock → too-far-future, rejected; the third sets clockSuspect.
+    iss.setFallback((now) => json(position({ timestamp: Math.floor(now / 1000) + 120 })));
+    await tracker.open();
+    // Requests at ~0, ~10–12 and ~30–36 s (backoff with up to 20 % jitter).
+    await tracker.advance(40_000);
+    expect(iss.requests.length).toBeGreaterThanOrEqual(3);
+    await expect(page.getByText(/device.{0,2}s? clock/i).first()).toBeVisible();
+    await expect(tracker.marker()).toHaveCount(0);
+    await expect(page.getByText(fmt.lat('45.01', 'N'))).toHaveCount(0);
+  });
+
+  test('one sample 20 s ahead is shown, never labelled Fresh, with a future-skew note', async ({
     page,
     tracker,
     iss,
@@ -88,7 +104,14 @@ test.describe('tracking flows', () => {
     iss.setFallback((now) => json(position({ timestamp: Math.floor(now / 1000) + 20 })));
     await tracker.open();
     await tracker.advance(1_000);
-    await expect(page.getByText(copy.deviceClock).first()).toBeVisible();
+    await expect(page.getByText(fmt.lat('45.01', 'N')).first()).toBeVisible();
+    await expect(tracker.marker()).toBeVisible();
+    await expect(
+      page.getByText(/ahead of this device.{0,2}s? clock|clock.{0,40}\bahead\b/i).first(),
+    ).toBeVisible();
+    // innerText spans label/value elements, so "Data:" and its value are checked together.
+    const text = await page.evaluate(() => document.body.innerText);
+    expect(text).not.toMatch(/Data:\s*Fresh/i);
   });
 
   test('trail note is shown once a trail exists', async ({ page, tracker }) => {
