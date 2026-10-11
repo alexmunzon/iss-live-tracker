@@ -46,6 +46,7 @@ export function makeSnapshot(overrides: Partial<TrackerSnapshot> = {}): TrackerS
     consecutiveFailures: 0,
     nextEligibleMonoMs: null,
     retryBlockedBy: null,
+    automaticHold: null,
     clockSuspect: false,
     diagnostics: [],
     ...overrides,

@@ -73,6 +73,42 @@ describe('connection and retry text', () => {
     expect(describeConnection(snap, fresh, 18)).toBe('Connection problem, retrying in 18 s');
   });
 
+  it('R2 time-unverified hold: Retry waits before the deadline, Retry available after', () => {
+    const limited = {
+      kind: 'http',
+      status: 429,
+      retryAfter: { kind: 'date', epochMs: T0_MS + 120_000 },
+      serverDateMs: null,
+    } as const;
+    const waiting = makeSnapshot({
+      transport: 'retry-wait',
+      lastFailure: limited,
+      automaticHold: 'time-unverified',
+      retryBlockedBy: 'time-unverified',
+      clockSuspect: true,
+    });
+    expect(describeConnection(waiting, fresh, 42)).toBe(
+      'The source asked us to wait, but this device’s clock could not be verified. Automatic retry paused.',
+    );
+    const expired = makeSnapshot({
+      transport: 'retry-wait',
+      lastFailure: limited,
+      automaticHold: 'time-unverified',
+      retryBlockedBy: null,
+      clockSuspect: true,
+    });
+    const text = describeConnection(expired, fresh, null);
+    expect(text).toBe(
+      'This device’s clock could not be verified, so automatic updates are paused. Retry is available now.',
+    );
+    expect(text).not.toMatch(/retrying/i);
+    // Without the hold, an ordinary 429 still counts down.
+    const ordinary = makeSnapshot({ transport: 'retry-wait', lastFailure: limited });
+    expect(describeConnection(ordinary, fresh, 30)).toBe(
+      'The source is limiting requests, retrying in 30 s',
+    );
+  });
+
   it('blocked names the HTTP status', () => {
     const snap = makeSnapshot({
       transport: 'blocked',

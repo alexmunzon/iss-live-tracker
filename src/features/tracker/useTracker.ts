@@ -57,6 +57,7 @@ const IDLE_SNAPSHOT: TrackerSnapshot = Object.freeze({
   consecutiveFailures: 0,
   nextEligibleMonoMs: null,
   retryBlockedBy: null,
+  automaticHold: null,
   clockSuspect: false,
   diagnostics: Object.freeze([]),
 });

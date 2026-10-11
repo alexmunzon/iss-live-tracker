@@ -632,6 +632,96 @@ describe('A08 429 and jitter', () => {
     expect(s.client.calls).toHaveLength(callsBefore + 1);
   });
 
+  it('R2 time-unverified hold stays exposed after the deadline; manual-only, never automatic', async () => {
+    const s = setup({ random: 0 });
+    await s.env.advance(100); // good sample accepted
+    s.env.jumpWall(60_000); // wall jumps; detected at the next wake → clockSuspect
+    s.client.script.push({
+      delayMs: 0,
+      outcome: failWith(http(429, { kind: 'date', epochMs: s.env.wall + 120_000 })),
+    });
+    await s.env.advance(4_900); // second request → 429, date form, no server Date
+    expect(s.client.calls).toHaveLength(2);
+
+    // Before the deadline: hold exposed, Retry blocked with a countdown target.
+    const before = s.scheduler.getSnapshot();
+    expect(before.clockSuspect).toBe(true);
+    expect(before.automaticHold).toBe('time-unverified');
+    expect(before.retryBlockedBy).toBe('time-unverified');
+    const deadline = before.nextEligibleMonoMs;
+    expect(deadline).not.toBeNull();
+    await s.env.advance((deadline ?? 0) - s.env.mono - 1);
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      automaticHold: 'time-unverified',
+      retryBlockedBy: 'time-unverified',
+    });
+
+    // At the deadline: Retry allowed, hold still exposed, nothing scheduled.
+    await s.env.advance(1);
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      transport: 'retry-wait',
+      automaticHold: 'time-unverified',
+      retryBlockedBy: null,
+      nextEligibleMonoMs: null,
+    });
+    expect(s.client.calls).toHaveLength(2);
+    expect(s.env.pendingCount).toBe(0);
+
+    // After the deadline and one simulated hour later: still no automatic request.
+    await s.env.advance(1_000);
+    expect(s.scheduler.getSnapshot().automaticHold).toBe('time-unverified');
+    await s.env.advance(3_600_000);
+    expect(s.client.calls).toHaveLength(2);
+    expect(s.env.pendingCount).toBe(0);
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      automaticHold: 'time-unverified',
+      retryBlockedBy: null,
+    });
+
+    // Hide/show, pause/resume and offline/online neither clear the hold nor start a request.
+    s.scheduler.setVisible(false);
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      transport: 'hidden',
+      automaticHold: 'time-unverified',
+    });
+    s.scheduler.setVisible(true);
+    await s.env.advance(10_000);
+    s.scheduler.pause();
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      transport: 'paused',
+      automaticHold: 'time-unverified',
+    });
+    s.scheduler.resume();
+    await s.env.advance(10_000);
+    s.scheduler.setOnlineHint(false);
+    s.scheduler.setOnlineHint(true);
+    await s.env.advance(10_000);
+    expect(s.client.calls).toHaveLength(2);
+    expect(s.env.pendingCount).toBe(0);
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      transport: 'retry-wait',
+      automaticHold: 'time-unverified',
+      retryBlockedBy: null,
+    });
+
+    // Exactly one manual Retry starts one request and clears the hold.
+    s.scheduler.retryNow();
+    s.scheduler.retryNow(); // second press is blocked by the in-flight request
+    expect(s.client.calls).toHaveLength(3);
+    expect(s.scheduler.getSnapshot().automaticHold).toBeNull();
+    await s.env.advance(100); // fallback: ok
+    expect(s.scheduler.getSnapshot()).toMatchObject({
+      transport: 'polling',
+      automaticHold: null,
+      lastFailure: null,
+    });
+    // Normal polling resumes.
+    await s.env.advance(4_900);
+    expect(s.client.calls).toHaveLength(4);
+    await s.env.advance(10_000);
+    expect(s.client.calls).toHaveLength(6);
+  });
+
   it('A08 server deadline survives pause, hide and offline', async () => {
     const s = setup({ random: 0 });
     s.client.script.push({

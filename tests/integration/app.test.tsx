@@ -207,6 +207,48 @@ describe('App integration (jsdom)', () => {
     expect(container.textContent).not.toMatch(/Data:\s*Fresh/i);
   });
 
+  it('R2 time-unverified 429: after the deadline the UI never promises an automatic retry', async () => {
+    fake.queue(fresh(), {
+      kind: 'respond',
+      status: 429,
+      // Date-form Retry-After and no Date header → no readable server Date.
+      headers: { 'Retry-After': new Date(T0_MS + 3_600_000).toUTCString() },
+      body: '',
+    });
+    render(<App />);
+    await advance(1_000); // first sample accepted
+    vi.setSystemTime(Date.now() + 600_000); // wall jumps; performance.now does not
+    await advance(4_000); // wake at 5 s: clock check → clockSuspect, second request → 429
+    expect(fake.calls).toHaveLength(2);
+    const connection = () => screen.getByTestId('connection').textContent ?? '';
+    const retry = () => screen.getByRole('button', { name: /retry/i });
+
+    // Before the deadline: truthful pause copy; Retry waits.
+    expect(connection()).toMatch(/clock could not be verified/i);
+    expect(connection()).toMatch(/automatic retry paused/i);
+    expect(retry()).toBeDisabled();
+
+    // After the 60 s minimum wait.
+    await advance(61_000);
+    expect(fake.calls).toHaveLength(2);
+    expect(connection()).not.toMatch(/retrying/i);
+    expect(connection()).toMatch(/automatic updates are paused/i);
+    expect(connection()).toMatch(/retry is available now/i);
+    expect(retry()).toBeEnabled();
+
+    // One simulated hour later: still no automatic request, still no false promise.
+    await advance(3_600_000);
+    expect(fake.calls).toHaveLength(2);
+    expect(connection()).not.toMatch(/retrying/i);
+    expect(connection()).toMatch(/automatic updates are paused/i);
+
+    // Manual Retry makes exactly one request.
+    fireEvent.click(retry());
+    await advance(100);
+    expect(fake.calls).toHaveLength(3);
+    expect(connection()).not.toMatch(/automatic updates are paused/i);
+  });
+
   it('A17 unmount stops everything: no timers, no further requests', async () => {
     const { unmount } = render(<App />);
     await advance(12_000);
