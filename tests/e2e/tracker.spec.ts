@@ -109,9 +109,9 @@ test.describe('tracking flows', () => {
     await expect(
       page.getByText(/ahead of this device.{0,2}s? clock|clock.{0,40}\bahead\b/i).first(),
     ).toBeVisible();
-    // innerText spans label/value elements, so "Data:" and its value are checked together.
-    const text = await page.evaluate(() => document.body.innerText);
-    expect(text).not.toMatch(/Data:\s*Fresh/i);
+    // A future-skewed sample is capped at Delayed; assert the badge itself, not page text.
+    await expect(page.getByTestId('data-state')).toHaveText('Delayed');
+    await expect(page.getByTestId('data-state')).toHaveCount(1);
   });
 
   test('trail note is shown once a trail exists', async ({ page, tracker }) => {
