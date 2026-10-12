@@ -62,6 +62,14 @@ export const trackerPolicy = {
   /** Bounded diagnostics ring kept in the snapshot. */
   diagnosticsLimit: 20,
 
+  /**
+   * Mission Replay (session-only, in memory): how far back a visitor can scrub, in monotonic
+   * time measured from the newest recorded event.
+   */
+  replayWindowMs: 10 * 60_000,
+  /** Mission Replay: at most this many events are kept (newest win), whatever the window. */
+  replayMaxEvents: 600,
+
   /** Display refresh for the age text. Not a network timer. */
   ageDisplayTickMs: 1_000,
 

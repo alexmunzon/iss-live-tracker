@@ -23,8 +23,8 @@ A small static web app (React, TypeScript, Leaflet) that polls a public ISS posi
 
 | Layer              | What runs                                                                                                                                                                          | Where                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Unit + integration | 14 files / 449 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                             | `tests/unit`, `tests/integration`            |
-| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (102/102): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
+| Unit + integration | 18 files / 497 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                             | `tests/unit`, `tests/integration`            |
+| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (123/123): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
 | CI                 | Every push and pull request runs all of the above. No secrets; the ISS API and map tiles are intercepted, so CI never sends traffic to real providers                              | `.github/workflows/ci.yml`                   |
 | Evidence           | Each acceptance criterion (A01–A20) mapped to its tests, with what is still manual                                                                                                 | [`docs/qa-evidence.md`](docs/qa-evidence.md) |
 

@@ -1,16 +1,32 @@
-import { useId } from 'react';
+import { useId, type RefObject } from 'react';
 import type { TrackerView } from '../../domain/position';
 import { trackerPolicy } from '../../config/trackerPolicy';
 import { describeRetryBlock } from './format';
 
-export interface ControlsProps {
+/** Mission Replay entry point, shown with the live controls when onEnterReplay is given. */
+export interface ReplayEntryProps {
+  /** True once at least one event has been recorded. */
+  readonly replayAvailable?: boolean | undefined;
+  readonly onEnterReplay?: (() => void) | undefined;
+  /** Focus returns to this button on "Back to live". */
+  readonly replayButtonRef?: RefObject<HTMLButtonElement | null> | undefined;
+}
+
+export interface ControlsProps extends ReplayEntryProps {
   readonly view: TrackerView;
   readonly follow: boolean;
   readonly onRecenter: () => void;
 }
 
-/** Pause/Resume, Retry and Recenter. Map zoom/pan buttons live on the map itself (IssMap). */
-export function Controls({ view, follow, onRecenter }: ControlsProps) {
+/** Pause/Resume, Retry, Recenter and Replay. Map zoom/pan buttons live on the map itself (IssMap). */
+export function Controls({
+  view,
+  follow,
+  onRecenter,
+  replayAvailable = false,
+  onEnterReplay,
+  replayButtonRef,
+}: ControlsProps) {
   const { snapshot, secondsUntilEligible, actions } = view;
   const retryReasonId = useId();
   const recenterNoteId = useId();
@@ -48,6 +64,18 @@ export function Controls({ view, follow, onRecenter }: ControlsProps) {
         >
           Recenter on ISS
         </button>
+
+        {onEnterReplay !== undefined && (
+          <button
+            ref={replayButtonRef}
+            type="button"
+            className="button"
+            onClick={onEnterReplay}
+            disabled={!replayAvailable}
+          >
+            Replay
+          </button>
+        )}
       </div>
 
       {retryBlocked !== null && (

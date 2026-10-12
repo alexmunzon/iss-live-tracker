@@ -10,6 +10,7 @@ import {
   type TrackerView,
   type TrailSegment,
 } from '../../domain/position';
+import { EMPTY_REPLAY_LOG, type ReplayLog } from '../../domain/replay';
 
 /** 2026-10-11T14:01:23Z, same base time as the canonical fixtures. */
 export const PREVIEW_T0_MS = 1791727283000;
@@ -61,6 +62,7 @@ export interface ViewOverrides {
   readonly freshness?: Partial<FreshnessView>;
   readonly trailSegments?: readonly TrailSegment[];
   readonly secondsUntilEligible?: number | null;
+  readonly replayLog?: ReplayLog;
   readonly actions?: TrackerActions;
 }
 
@@ -70,6 +72,7 @@ export function makeView(overrides: ViewOverrides = {}): TrackerView {
     freshness: { state: 'fresh', ageMs: 5_000, clockWarning: null, ...overrides.freshness },
     trailSegments: overrides.trailSegments ?? [],
     secondsUntilEligible: overrides.secondsUntilEligible ?? null,
+    replayLog: overrides.replayLog ?? EMPTY_REPLAY_LOG,
     actions: overrides.actions ?? noopActions,
   };
 }

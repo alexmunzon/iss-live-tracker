@@ -3,7 +3,11 @@ import '../styles/tokens.css';
 import '../styles/app.css';
 import { trackerPolicy } from '../config/trackerPolicy';
 import type { LatLngTuple, MapStatus } from '../domain/position';
+import { replayStateAt } from '../domain/replay';
+import { toTrailSegments } from '../domain/trail';
 import { IssMap } from '../features/map/IssMap';
+import { ReplayPanel } from '../features/replay/ReplayPanel';
+import { useReplay } from '../features/replay/useReplay';
 import { StatusPanel } from '../features/status/StatusPanel';
 import { TrackerLayout } from '../features/status/TrackerLayout';
 import { useTracker, type TrackerEnvironment } from '../features/tracker/useTracker';
@@ -19,7 +23,17 @@ export function App({ environment }: AppProps = {}) {
   const [recenterToken, setRecenterToken] = useState(0);
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
 
-  const sample = view.snapshot.anchor?.sample ?? null;
+  const replay = useReplay(view);
+  const session = replay.session;
+
+  // In Replay the map shows the replayed instant (frozen log); otherwise the live snapshot.
+  const replayState = session === null ? null : replayStateAt(session.log, session.index);
+  const replayTrail = replayState?.trail ?? null;
+  const replayTrailSegments = useMemo(
+    () => (replayTrail === null ? null : toTrailSegments(replayTrail)),
+    [replayTrail],
+  );
+  const sample = (session === null ? view.snapshot.anchor : replayState?.anchor)?.sample ?? null;
   const position = useMemo<LatLngTuple | null>(
     () => (sample ? [sample.latitudeDeg, sample.longitudeDeg] : null),
     [sample],
@@ -45,7 +59,7 @@ export function App({ environment }: AppProps = {}) {
         map={
           <IssMap
             position={position}
-            trailSegments={view.trailSegments}
+            trailSegments={replayTrailSegments ?? view.trailSegments}
             follow={follow}
             onUserMoved={onUserMoved}
             recenterToken={recenterToken}
@@ -53,7 +67,30 @@ export function App({ environment }: AppProps = {}) {
           />
         }
         status={
-          <StatusPanel view={view} follow={follow} mapStatus={mapStatus} onRecenter={onRecenter} />
+          <>
+            {session === null ? (
+              <StatusPanel
+                view={view}
+                follow={follow}
+                mapStatus={mapStatus}
+                onRecenter={onRecenter}
+                replayAvailable={replay.canEnter}
+                onEnterReplay={replay.enter}
+                replayButtonRef={replay.replayButtonRef}
+              />
+            ) : (
+              <ReplayPanel
+                log={session.log}
+                index={session.index}
+                onSelect={replay.select}
+                onExit={replay.exit}
+              />
+            )}
+            {/* Always mounted, so entering and leaving Replay are announced reliably. */}
+            <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+              {replay.announcement}
+            </p>
+          </>
         }
       />
       <footer className="tracker-footer">
@@ -73,7 +110,7 @@ export function App({ environment }: AppProps = {}) {
             tile.openstreetmap.org. Both services receive your IP address and browser details, as
             any website you load would. This site uses no cookies, analytics, accounts or location
             access, and stores nothing. The trail lives only in memory and disappears when you close
-            the page.
+            the page. Replay uses only this session’s in-memory data and stores nothing.
           </p>
           <p>
             Map data{' '}

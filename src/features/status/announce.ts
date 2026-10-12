@@ -1,5 +1,5 @@
 // Live-region policy: announce state transitions only. Never age ticks or coordinates.
-import type { DataState, TransportStatus } from '../../domain/position';
+import type { DataState, TrackerSnapshot, TransportStatus } from '../../domain/position';
 
 export interface AnnounceState {
   readonly hasPosition: boolean;
@@ -38,4 +38,32 @@ export function announcementFor(prev: AnnounceState, next: AnnounceState): strin
   }
 
   return parts.length > 0 ? parts.join(' ') : null;
+}
+
+/** Mission Replay: announced once when Replay opens. */
+export const REPLAY_ENTERED_ANNOUNCEMENT =
+  'Replay opened. Showing recorded data from this session, not live.';
+
+/**
+ * Mission Replay: announced once on "Back to live", from the live snapshot right after the
+ * switch, so it never claims updates resumed when the tab is hidden, offline or held (R2).
+ */
+export function backToLiveAnnouncement(wasPaused: boolean, snapshot: TrackerSnapshot): string {
+  if (wasPaused) return 'Back to live. Updates are still paused.';
+  switch (snapshot.transport) {
+    case 'idle':
+    case 'polling':
+    case 'paused':
+      return 'Back to live. Live updates resumed.';
+    case 'hidden':
+      return 'Back to live. Updates resume when this tab is in the foreground.';
+    case 'offline':
+      return 'Back to live. Offline: updates resume when the connection returns.';
+    case 'blocked':
+      return 'Back to live. The source is unavailable, so automatic updates are stopped.';
+    case 'retry-wait':
+      return snapshot.automaticHold === null
+        ? 'Back to live. Waiting before retrying the source.'
+        : 'Back to live. Automatic updates are paused; use Retry when ready.';
+  }
 }
