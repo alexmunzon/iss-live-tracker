@@ -2,6 +2,8 @@
 // Workers implement against these types; changes go through the coordinator.
 // Semantics are documented in docs/contracts.md.
 
+import type { ReplayLog } from './replay';
+
 // ---------------------------------------------------------------------------
 // Identity and normalized sample
 // ---------------------------------------------------------------------------
@@ -309,6 +311,11 @@ export interface TrackerView {
   readonly trailSegments: readonly TrailSegment[];
   /** Monotonic ms remaining until nextEligibleMonoMs, rounded up to whole seconds; null if none. */
   readonly secondsUntilEligible: number | null;
+  /**
+   * Mission Replay: bounded, session-only log of what the tracker knew and when. Updated in the
+   * same store commit as `snapshot`, so the two are always consistent. In memory only.
+   */
+  readonly replayLog: ReplayLog;
   readonly actions: TrackerActions;
 }
 

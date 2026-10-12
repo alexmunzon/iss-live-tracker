@@ -7,6 +7,7 @@ import { trackerPolicy } from '../../config/trackerPolicy';
 import { createIssClient } from '../../data/issClient';
 import { createPollingScheduler } from '../../data/pollingMachine';
 import { computeFreshness } from '../../domain/freshness';
+import { EMPTY_REPLAY_LOG, recordSnapshot, type ReplayLog } from '../../domain/replay';
 import type {
   Clock,
   FetchLike,
@@ -62,12 +63,37 @@ const IDLE_SNAPSHOT: TrackerSnapshot = Object.freeze({
   diagnostics: Object.freeze([]),
 });
 
+/** One immutable store value: the snapshot and the replay log recorded up to it, together. */
+interface TrackerStoreState {
+  readonly snapshot: TrackerSnapshot;
+  readonly replayLog: ReplayLog;
+}
+
+const IDLE_STATE: TrackerStoreState = Object.freeze({
+  snapshot: IDLE_SNAPSHOT,
+  replayLog: EMPTY_REPLAY_LOG,
+});
+
 /** Owns at most one scheduler at a time and exposes a stable external store to React. */
 function createTrackerStore(env: TrackerEnvironment) {
   let scheduler: PollingScheduler | null = null;
+  // Replaced as a whole, so React always reads a snapshot and the log recorded up to it.
+  // A new object only when the scheduler's snapshot changed; same reference otherwise.
+  let state: TrackerStoreState = IDLE_STATE;
   const listeners = new Set<() => void>();
-  const notify = (): void => {
+  const emit = (): void => {
     for (const listener of [...listeners]) listener();
+  };
+  /** Scheduler commit: record the change against the previous snapshot, then tell React. */
+  const sync = (): void => {
+    const next = scheduler ? scheduler.getSnapshot() : IDLE_SNAPSHOT;
+    if (next !== state.snapshot) {
+      state = {
+        snapshot: next,
+        replayLog: recordSnapshot(state.replayLog, state.snapshot, next, env.clock),
+      };
+    }
+    emit();
   };
 
   return {
@@ -77,8 +103,8 @@ function createTrackerStore(env: TrackerEnvironment) {
         listeners.delete(listener);
       };
     },
-    getSnapshot(): TrackerSnapshot {
-      return scheduler ? scheduler.getSnapshot() : IDLE_SNAPSHOT;
+    getState(): TrackerStoreState {
+      return state;
     },
     actions: {
       pause: () => scheduler?.pause(),
@@ -96,7 +122,7 @@ function createTrackerStore(env: TrackerEnvironment) {
         initialVisible: env.isVisible(),
         initialOnline: env.isOnline(),
       });
-      const unsubscribe = instance.subscribe(notify);
+      const unsubscribe = instance.subscribe(sync);
 
       const onVisibility = (): void => instance.setVisible(env.isVisible());
       const onOnline = (): void => instance.setOnlineHint(true);
@@ -109,7 +135,10 @@ function createTrackerStore(env: TrackerEnvironment) {
       // the first instance before it sends anything, so development makes one request, not two.
       const startHandle = env.timers.set(() => instance.start(), 0);
       scheduler = instance;
-      notify();
+      // A fresh log per connection: a Strict Mode remount never double-records. The first
+      // entry compares the new scheduler's snapshot with the idle one shown before it.
+      state = IDLE_STATE;
+      sync();
 
       return () => {
         env.timers.clear(startHandle);
@@ -118,8 +147,11 @@ function createTrackerStore(env: TrackerEnvironment) {
         window.removeEventListener('offline', onOffline);
         unsubscribe();
         instance.dispose();
-        if (scheduler === instance) scheduler = null;
-        notify();
+        if (scheduler === instance) {
+          scheduler = null;
+          state = IDLE_STATE;
+        }
+        emit();
       };
     },
   };
@@ -131,7 +163,11 @@ export function useTracker(environment?: TrackerEnvironment): TrackerView {
   const [store] = useState(() => createTrackerStore(env));
 
   useEffect(() => store.connect(), [store]);
-  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const { snapshot, replayLog } = useSyncExternalStore(
+    store.subscribe,
+    store.getState,
+    store.getState,
+  );
 
   // Display tick: re-render once per second so age text advances. Not a network timer.
   const [, setTick] = useState(0);
@@ -152,5 +188,12 @@ export function useTracker(environment?: TrackerEnvironment): TrackerView {
   const secondsUntilEligible =
     next === null ? null : Math.ceil(Math.max(0, next - env.clock.monotonicNowMs()) / 1000);
 
-  return { snapshot, freshness, trailSegments, secondsUntilEligible, actions: store.actions };
+  return {
+    snapshot,
+    freshness,
+    trailSegments,
+    secondsUntilEligible,
+    replayLog,
+    actions: store.actions,
+  };
 }

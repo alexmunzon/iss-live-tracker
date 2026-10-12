@@ -1,9 +1,9 @@
 // Coordinator-owned hook tests: A05/A09/A10 integration of the one scheduler into React.
-import { act, render, screen } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { App } from '../../../src/app/App';
-import type { TrackerEnvironment } from '../../../src/features/tracker/useTracker';
+import { useTracker, type TrackerEnvironment } from '../../../src/features/tracker/useTracker';
 import { rawPosition } from '../../fixtures/canonical';
 import { FakeEnv, flushMicrotasks } from '../data/fakes';
 
@@ -140,5 +140,22 @@ describe('useTracker + App', () => {
     render(<App environment={t.env} />);
     await t.step(0);
     expect(t.calls[0]).toMatchObject({ referrerPolicy: 'no-referrer', credentials: 'omit' });
+  });
+
+  it('Replay: Strict Mode records one session log, consistent with the snapshot', async () => {
+    const t = setup();
+    const { result } = renderHook(() => useTracker(t.env), { wrapper: StrictMode });
+    await t.step(0);
+    await t.step(5_000);
+    const { replayLog, snapshot } = result.current;
+    const kinds = replayLog.events.map((e) => e.kind);
+    expect(kinds.filter((k) => k === 'request-started')).toHaveLength(2);
+    expect(kinds.filter((k) => k === 'sample-accepted')).toHaveLength(2);
+    expect(kinds.filter((k) => k === 'transport-changed')).toHaveLength(1);
+    expect(replayLog.events.map((e) => e.seq)).toEqual(kinds.map((_, i) => i));
+    const last = replayLog.events.at(-1);
+    expect(last?.anchor).toBe(snapshot.anchor);
+    expect(last?.trail).toBe(snapshot.trail);
+    expect(last?.transport).toBe(snapshot.transport);
   });
 });
