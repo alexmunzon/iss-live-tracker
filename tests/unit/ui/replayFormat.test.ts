@@ -160,7 +160,7 @@ describe('Replay slider aria-valuetext', () => {
 
   it('no position yet', () => {
     expect(replayValueText({ events: [event('transport-changed')], nextSeq: 1 }, 0)).toBe(
-      '14:01:23 UTC, Waiting for first position, no position yet',
+      '14:01:23 UTC, Waiting, no position yet',
     );
   });
 
@@ -193,8 +193,8 @@ describe('Replay connection line', () => {
       ],
       nextSeq: 2,
     };
-    expect(replayConnection(log, 0)).toBe('Paused');
-    expect(replayConnection(log, 1)).toBe('Connected. Updating every 5 s.');
+    expect(replayConnection(log, 0)).toBe('Updates paused.');
+    expect(replayConnection(log, 1)).toBe('Updates running every 5 s.');
   });
 
   it('a recorded 429 reads as it did then, with the countdown at that moment', () => {
@@ -204,7 +204,9 @@ describe('Replay connection line', () => {
       nextEligibleMonoMs: MONO + 12_000,
     });
     const log: ReplayLog = { events: [event('transport-changed', { snapshot })], nextSeq: 1 };
-    expect(replayConnection(log, 0)).toBe('The source is limiting requests, retrying in 12 s');
+    expect(replayConnection(log, 0)).toBe(
+      'The source is limiting requests. Next attempt in 12 seconds.',
+    );
   });
 
   it('a recorded time-unverified hold never reads as an automatic retry (R2)', () => {
@@ -235,8 +237,12 @@ describe('Replay connection line', () => {
       ],
       nextSeq: 2,
     };
-    expect(replayConnection(log, 0)).toMatch(/Automatic retry paused/);
-    expect(replayConnection(log, 1)).toMatch(/automatic updates are paused/);
+    expect(replayConnection(log, 0)).toBe(
+      'Automatic updates paused because retry timing could not be verified.',
+    );
+    expect(replayConnection(log, 1)).toBe(
+      'Automatic updates paused because retry timing could not be verified. Retry now is available.',
+    );
     for (const i of [0, 1]) expect(replayConnection(log, i)).not.toMatch(/retrying/i);
   });
 
@@ -248,7 +254,7 @@ describe('Replay connection line', () => {
     });
     const log: ReplayLog = { events: [event('transport-changed', { snapshot })], nextSeq: 1 };
     expect(replayConnection(log, 0)).toBe(
-      'Source unavailable (HTTP 404). Automatic retry stopped.',
+      'Source unavailable (HTTP 404). Automatic updates stopped.',
     );
   });
 });

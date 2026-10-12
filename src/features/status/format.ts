@@ -71,12 +71,59 @@ export function formatAge(ageMs: number): string {
 }
 
 export const DATA_STATE_LABEL: Record<DataState, string> = {
-  empty: 'Waiting for first position',
+  empty: 'Waiting',
   fresh: 'Fresh',
   delayed: 'Delayed',
   stale: 'Stale',
   unverified: 'Time could not be verified',
 };
+
+/** Visual tone shared by the badge, the updates label and notices. Never the only signal. */
+export type Tone = 'ok' | 'warn' | 'error' | 'neutral';
+
+export const DATA_STATE_TONE: Record<DataState, Tone> = {
+  empty: 'neutral',
+  fresh: 'ok',
+  delayed: 'warn',
+  stale: 'warn',
+  unverified: 'warn',
+};
+
+/**
+ * Short update-scheduling state for the summary strip ("Running", "Paused"…). Describes
+ * scheduling only, never how old the data is (that is the calculation badge).
+ */
+export function describeUpdates(snapshot: TrackerSnapshot): { label: string; tone: Tone } {
+  switch (snapshot.transport) {
+    case 'idle':
+      return { label: 'Starting', tone: 'neutral' };
+    case 'polling':
+      return snapshot.anchor === null
+        ? { label: 'Connecting', tone: 'neutral' }
+        : { label: 'Running', tone: 'ok' };
+    case 'paused':
+      return { label: 'Paused', tone: 'warn' };
+    case 'hidden':
+      return { label: 'Paused in background', tone: 'neutral' };
+    case 'offline':
+      return { label: 'Offline', tone: 'warn' };
+    case 'retry-wait':
+      return snapshot.automaticHold === null
+        ? { label: 'Retrying', tone: 'warn' }
+        : { label: 'On hold', tone: 'warn' };
+    case 'blocked':
+      return { label: 'Stopped', tone: 'error' };
+  }
+}
+
+/** True when a manual Retry is worth showing at all: only while something is wrong. */
+export function retryRelevant(snapshot: TrackerSnapshot): boolean {
+  return (
+    snapshot.transport === 'retry-wait' ||
+    snapshot.transport === 'offline' ||
+    snapshot.transport === 'blocked'
+  );
+}
 
 /** Short plain-language description of a failure, for "Last problem: …". */
 export function describeFailure(failure: FetchFailure): string {
@@ -106,11 +153,17 @@ export function describeFailure(failure: FetchFailure): string {
   }
 }
 
-function inSeconds(seconds: number | null): string {
-  return seconds === null ? 'shortly' : `in ${seconds} s`;
+function nextAttempt(seconds: number | null): string {
+  // A countdown only when an automatic attempt is actually scheduled at a known time.
+  if (seconds === null) return 'Waiting before the next attempt.';
+  return `Next attempt in ${plural(seconds, 'second')}.`;
 }
 
-/** Connection line, independent of how old the data is. */
+/**
+ * Full sentence about update scheduling, independent of how old the data is. The live view
+ * shows it as a notice whenever updates are not simply running; Replay shows it for every
+ * recorded instant (replayConnection), so both always use these exact words.
+ */
 export function describeConnection(
   snapshot: TrackerSnapshot,
   freshness: FreshnessView,
@@ -124,33 +177,34 @@ export function describeConnection(
     }
     return `Last position calculated ${formatAge(freshness.ageMs)}.`;
   };
+  const httpCode = lastFailure?.kind === 'http' ? ` (HTTP ${lastFailure.status})` : '';
   switch (transport) {
     case 'idle':
       return 'Starting.';
     case 'polling':
-      if (anchor === null) return 'Connecting to the source.';
-      return `Connected. Updating every ${trackerPolicy.healthyIntervalMs / 1000} s.`;
+      if (anchor === null) return 'Waiting for the first position.';
+      return `Updates running every ${trackerPolicy.healthyIntervalMs / 1000} s.`;
     case 'retry-wait':
       if (snapshot.automaticHold === 'time-unverified') {
         // Never promise an automatic retry here: only a manual Retry can lift this hold.
         return snapshot.retryBlockedBy === null
-          ? 'This device’s clock could not be verified, so automatic updates are paused. Retry is available now.'
-          : 'The source asked us to wait, but this device’s clock could not be verified. Automatic retry paused.';
+          ? 'Automatic updates paused because retry timing could not be verified. Retry now is available.'
+          : 'Automatic updates paused because retry timing could not be verified.';
       }
       if (lastFailure?.kind === 'http' && lastFailure.status === 429) {
-        return `The source is limiting requests, retrying ${inSeconds(secondsUntilEligible)}`;
+        return `The source is limiting requests. ${nextAttempt(secondsUntilEligible)}`;
       }
-      return `Connection problem, retrying ${inSeconds(secondsUntilEligible)}`;
+      return `Source unavailable. ${nextAttempt(secondsUntilEligible)}`;
     case 'paused':
-      return 'Paused';
+      return 'Updates paused.';
     case 'hidden':
-      return 'Paused while this tab is in the background.';
+      return 'Updates paused while this tab is in the background.';
     case 'offline':
-      return `Offline. ${lastCalculated()}`;
+      return `You appear to be offline. ${lastCalculated()}`;
     case 'blocked':
-      return lastFailure?.kind === 'http'
-        ? `Source unavailable (HTTP ${lastFailure.status}). Automatic retry stopped.`
-        : 'Source unavailable. Automatic retry stopped.';
+      return anchor === null
+        ? `No position is available yet. Source unavailable${httpCode}, so automatic updates stopped.`
+        : `Source unavailable${httpCode}. Automatic updates stopped.`;
   }
 }
 

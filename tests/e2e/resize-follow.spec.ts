@@ -7,20 +7,37 @@ const MOBILE = { width: 390, height: 844 };
 const DESKTOP = { width: 1440, height: 900 };
 const LANDSCAPE = { width: 844, height: 390 };
 
-const FOLLOWING = 'Following: the map moves with the ISS.';
-const NOT_FOLLOWING = /^Not following/;
+const FOLLOWING = 'Following ISS';
+const NOT_FOLLOWING = 'Exploring map';
 
-/** True when the marker's box overlaps the map canvas box (real viewport intersection). */
-async function markerIntersectsMap(page: Page, tracker: Tracker): Promise<boolean> {
+/**
+ * Real viewport geometry, not a marker count. 'contained': the whole 30 px marker box lies inside
+ * the map canvas (required wherever the map can centre on it). 'centre': the coordinate itself
+ * (the marker centre) lies inside the canvas. Used only at lon ±179.5, where whole-box
+ * containment is impossible by geometry: the world edge is 1–2 px from the marker centre and
+ * maxBounds stops the map there, so half the marker must hang over the map edge.
+ */
+type Fit = 'contained' | 'centre';
+
+async function markerOnMap(page: Page, tracker: Tracker, fit: Fit): Promise<boolean> {
   const marker = await tracker.marker().boundingBox();
   const canvas = await page.locator('.iss-map__canvas').boundingBox();
   if (!marker || !canvas) return false;
-  return (
-    marker.x < canvas.x + canvas.width &&
-    marker.x + marker.width > canvas.x &&
-    marker.y < canvas.y + canvas.height &&
-    marker.y + marker.height > canvas.y
-  );
+  const left = canvas.x - 1;
+  const top = canvas.y - 1;
+  const right = canvas.x + canvas.width + 1;
+  const bottom = canvas.y + canvas.height + 1;
+  if (fit === 'contained') {
+    return (
+      marker.x >= left &&
+      marker.y >= top &&
+      marker.x + marker.width <= right &&
+      marker.y + marker.height <= bottom
+    );
+  }
+  const cx = marker.x + marker.width / 2;
+  const cy = marker.y + marker.height / 2;
+  return cx >= left && cx <= right && cy >= top && cy <= bottom;
 }
 
 /** Marker centre relative to the map canvas centre, in px. */
@@ -56,21 +73,26 @@ async function settle(page: Page, tracker: Tracker) {
 }
 
 /** One map, one marker, still inside the map, follow still on. */
-async function expectFollowedAndVisible(page: Page, tracker: Tracker, label: string) {
+async function expectFollowedAndVisible(
+  page: Page,
+  tracker: Tracker,
+  label: string,
+  fit: Fit = 'contained',
+) {
   await settle(page, tracker);
-  expect(await markerIntersectsMap(page, tracker), `marker inside map (${label})`).toBe(true);
+  expect(await markerOnMap(page, tracker, fit), `marker ${fit} in map (${label})`).toBe(true);
   await expect(page.getByTestId('follow-state')).toHaveText(FOLLOWING);
   await expect(page.locator('.leaflet-marker-pane > *')).toHaveCount(1);
   await expect(page.locator('.leaflet-container')).toHaveCount(1);
 }
 
-async function openAt(page: Page, tracker: Tracker) {
+async function openAt(page: Page, tracker: Tracker, fit: Fit = 'contained') {
   await page.setViewportSize(MOBILE);
   await tracker.open();
   await expect(tracker.marker()).toBeVisible();
   await expect(page.getByTestId('follow-state')).toHaveText(FOLLOWING);
   await tracker.advance(1_000); // let the first follow pan finish
-  await expect.poll(() => markerIntersectsMap(page, tracker)).toBe(true);
+  await expect.poll(() => markerOnMap(page, tracker, fit)).toBe(true);
 }
 
 test.describe('R1 resize keeps the followed ISS on the map', () => {
@@ -83,7 +105,8 @@ test.describe('R1 resize keeps the followed ISS on the map', () => {
       iss.setFallback((now) =>
         json(position({ timestamp: Math.floor(now / 1000), longitude, latitude: 33.5 })),
       );
-      await openAt(page, tracker);
+      const fit: Fit = Math.abs(longitude) > 179 ? 'centre' : 'contained';
+      await openAt(page, tracker, fit);
 
       const pause = page.getByRole('button', { name: /^pause/i }).first();
       await pause.scrollIntoViewIfNeeded();
@@ -99,7 +122,7 @@ test.describe('R1 resize keeps the followed ISS on the map', () => {
         ['portrait', MOBILE],
       ] as const) {
         await page.setViewportSize(size);
-        await expectFollowedAndVisible(page, tracker, label);
+        await expectFollowedAndVisible(page, tracker, label, fit);
       }
       expect(iss.requests.length, 'resizes must not fetch').toBe(requestsBefore);
     });
@@ -145,6 +168,7 @@ test.describe('R1 resize keeps the followed ISS on the map', () => {
     // fits inside the world at every size below, so Leaflet's maxBounds never has to clamp it.
     await page.getByRole('button', { name: 'Zoom in' }).click();
     await tracker.advance(1_000); // let the zoom animation finish
+    await page.getByRole('button', { name: 'Map controls' }).click();
     await page.getByRole('button', { name: 'Pan east' }).click();
     await tracker.advance(1_000); // let the pan animation finish
     await expect(page.getByTestId('follow-state')).toHaveText(NOT_FOLLOWING);

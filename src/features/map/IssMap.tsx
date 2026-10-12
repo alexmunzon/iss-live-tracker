@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import '../../styles/map.css';
@@ -18,8 +24,26 @@ import {
   type TileHealth,
 } from './mapHelpers';
 
-/** className-only icon (G1-v2): no html option, styling comes from CSS. */
-const ISS_ICON = L.divIcon({ className: 'iss-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
+/**
+ * className-only icon (G1-v2): no html option. The station symbol is a locally bundled SVG
+ * applied by CSS (map.css), centred on the accepted coordinate; the "ISS" label is CSS too.
+ */
+const MARKER_PX = 30;
+const ISS_ICON = L.divIcon({
+  className: 'iss-marker',
+  iconSize: [MARKER_PX, MARKER_PX],
+  iconAnchor: [MARKER_PX / 2, MARKER_PX / 2],
+});
+/** Width reserved for the "ISS" label beside the marker before it flips to the other side. */
+const LABEL_ROOM_PX = 72;
+
+/** Puts the marker label on whichever side keeps it inside the visible map. */
+function placeLabel(map: L.Map, marker: L.Marker | null) {
+  const el = marker?.getElement();
+  if (marker === null || el === undefined) return;
+  const x = map.latLngToContainerPoint(marker.getLatLng()).x;
+  el.classList.toggle('iss-marker--label-left', x > map.getSize().x - LABEL_ROOM_PX);
+}
 
 /** Attribution as a Leaflet control built from DOM nodes and textContent (no HTML strings). */
 function createAttributionControl(): L.Control {
@@ -99,7 +123,8 @@ export function IssMapCore({
     try {
       map = L.map(el, {
         center: INITIAL_CENTER,
-        zoom: INITIAL_ZOOM,
+        // Never start below the zoom that fills the map width with one world copy.
+        zoom: Math.max(INITIAL_ZOOM, fitWorldZoom(el.clientWidth)),
         minZoom: fitWorldZoom(el.clientWidth),
         maxZoom: trackerPolicy.tileMaxZoom,
         maxBounds: WORLD_BOUNDS,
@@ -169,6 +194,8 @@ export function IssMapCore({
       if (event.target === el && isMapKey(event)) userMoved();
     };
     el.addEventListener('keydown', onKey);
+    const onViewChange = () => placeLabel(map, markerRef.current);
+    map.on('moveend zoomend resize', onViewChange);
 
     const observer =
       typeof ResizeObserver === 'function'
@@ -197,6 +224,7 @@ export function IssMapCore({
       // map.remove() does not drop our own map listeners, so detach them explicitly.
       map.off('dragstart', userMoved);
       map.off('zoomstart', onZoomStart);
+      map.off('moveend zoomend resize', onViewChange);
       tiles.off('tileload', onTileLoad);
       tiles.off('tileerror', onTileError);
       map.remove();
@@ -229,6 +257,7 @@ export function IssMapCore({
     } else {
       marker.setLatLng(target);
     }
+    placeLabel(map, markerRef.current);
     if (follow) {
       const jump = previousLon !== undefined && crossesAntimeridian(previousLon, lon);
       programmaticRef.current += 1;
@@ -259,9 +288,11 @@ export function IssMapCore({
     const map = mapRef.current;
     const p = positionRef.current;
     if (map === null || p === null) return;
+    // A recenter across the dateline jumps instead of sweeping ~358° over the whole map.
+    const jump = crossesAntimeridian(map.getCenter().lng, p[1]);
     programmaticRef.current += 1;
     try {
-      map.panTo([p[0], p[1]], { animate: !prefersReducedMotion() });
+      map.panTo([p[0], p[1]], { animate: !jump && !prefersReducedMotion() });
     } finally {
       programmaticRef.current -= 1;
     }
@@ -277,6 +308,17 @@ export function IssMapCore({
   };
 
   const beyondProjection = lat !== undefined && Math.abs(lat) > MERCATOR_LAT_LIMIT;
+  const hasPosition = lat !== undefined;
+
+  const panPadId = useId();
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const onPadKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    setControlsOpen(false);
+    toggleRef.current?.focus();
+  };
 
   return (
     <div className="iss-map">
@@ -284,27 +326,38 @@ export function IssMapCore({
         ref={containerRef}
         className="iss-map__canvas"
         role="region"
-        aria-label="Map of the ISS position. When focused, arrow keys pan and plus or minus zoom."
+        aria-label="Map of the ISS position. When focused, arrow keys pan and plus or minus zoom. The position is also listed in the summary above."
       />
+      {hasPosition && !initFailed && (
+        <p
+          className={`iss-map__follow${follow ? '' : ' iss-map__follow--off'}`}
+          data-testid="follow-state"
+        >
+          {follow ? 'Following ISS' : 'Exploring map'}
+        </p>
+      )}
       {initFailed && (
         <div className="iss-map__fallback" data-testid="map-fallback">
-          <p>The map could not be started in this browser.</p>
-          <p>The ISS position is still listed in the status panel.</p>
+          <p>
+            <strong>Map unavailable.</strong> It could not be started in this browser.
+          </p>
+          <p>The ISS position is still listed in the summary above.</p>
         </div>
       )}
       {tilesFailing && !initFailed && (
         <p className="iss-map__notice" data-testid="map-tiles-failing">
-          Map images are not loading. The marker and the status panel still show the position.
+          <strong>Map unavailable.</strong> Map images are not loading. The marker and the summary
+          still show the position.
         </p>
       )}
       {beyondProjection && (
         <p className="iss-map__warning" data-testid="map-projection-warning">
           The ISS is beyond this map’s drawable latitude (±85.05°). The marker is shown at the edge;
-          the coordinates in the panel are exact.
+          the coordinates in the summary are exact.
         </p>
       )}
       {!initFailed && (
-        <div className="iss-map__controls" role="group" aria-label="Map controls">
+        <div className="iss-map__zoom" role="group" aria-label="Zoom">
           <button
             type="button"
             className="map-button"
@@ -321,37 +374,55 @@ export function IssMapCore({
           >
             <span aria-hidden="true">−</span>
           </button>
+        </div>
+      )}
+      {!initFailed && (
+        <div className="iss-map__controls" onKeyDown={onPadKey}>
+          {controlsOpen && (
+            <div id={panPadId} className="iss-map__pad" role="group" aria-label="Pan the map">
+              <button
+                type="button"
+                className="map-button"
+                aria-label="Pan north"
+                onClick={() => userAction((m, animate) => m.panBy([0, -PAN_STEP_PX], { animate }))}
+              >
+                <span aria-hidden="true">↑</span>
+              </button>
+              <button
+                type="button"
+                className="map-button"
+                aria-label="Pan south"
+                onClick={() => userAction((m, animate) => m.panBy([0, PAN_STEP_PX], { animate }))}
+              >
+                <span aria-hidden="true">↓</span>
+              </button>
+              <button
+                type="button"
+                className="map-button"
+                aria-label="Pan west"
+                onClick={() => userAction((m, animate) => m.panBy([-PAN_STEP_PX, 0], { animate }))}
+              >
+                <span aria-hidden="true">←</span>
+              </button>
+              <button
+                type="button"
+                className="map-button"
+                aria-label="Pan east"
+                onClick={() => userAction((m, animate) => m.panBy([PAN_STEP_PX, 0], { animate }))}
+              >
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          )}
           <button
+            ref={toggleRef}
             type="button"
-            className="map-button"
-            aria-label="Pan north"
-            onClick={() => userAction((m, animate) => m.panBy([0, -PAN_STEP_PX], { animate }))}
+            className="map-toggle"
+            aria-expanded={controlsOpen}
+            aria-controls={controlsOpen ? panPadId : undefined}
+            onClick={() => setControlsOpen((open) => !open)}
           >
-            <span aria-hidden="true">↑</span>
-          </button>
-          <button
-            type="button"
-            className="map-button"
-            aria-label="Pan south"
-            onClick={() => userAction((m, animate) => m.panBy([0, PAN_STEP_PX], { animate }))}
-          >
-            <span aria-hidden="true">↓</span>
-          </button>
-          <button
-            type="button"
-            className="map-button"
-            aria-label="Pan west"
-            onClick={() => userAction((m, animate) => m.panBy([-PAN_STEP_PX, 0], { animate }))}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <button
-            type="button"
-            className="map-button"
-            aria-label="Pan east"
-            onClick={() => userAction((m, animate) => m.panBy([PAN_STEP_PX, 0], { animate }))}
-          >
-            <span aria-hidden="true">→</span>
+            Map controls
           </button>
         </div>
       )}

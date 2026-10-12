@@ -333,10 +333,3 @@ export interface IssMapProps {
   readonly recenterToken: number;
   readonly onStatusChange: (status: MapStatus) => void;
 }
-
-export interface StatusPanelProps {
-  readonly view: TrackerView;
-  readonly follow: boolean;
-  readonly mapStatus: MapStatus;
-  readonly onRecenter: () => void;
-}

@@ -248,7 +248,7 @@ export const copy = {
   mapUnavailable:
     /map (is )?(unavailable|not available|could not|couldn.t|failed)|map tiles? (failed|unavailable|could not|couldn.t)|map (images|tiles) (are )?not loading/i,
   deviceClock: /device.{0,2}s? clock/i,
-  trailNote: 'Observed during this session.',
+  trailNote: 'Observed during this session',
   provider: /Where the ISS at/,
   osm: /OpenStreetMap contributors/,
 };

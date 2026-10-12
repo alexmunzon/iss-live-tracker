@@ -1,7 +1,6 @@
 import { useId, type RefObject } from 'react';
 import type { TrackerView } from '../../domain/position';
-import { trackerPolicy } from '../../config/trackerPolicy';
-import { describeRetryBlock } from './format';
+import { describeRetryBlock, retryRelevant } from './format';
 
 /** Mission Replay entry point, shown with the live controls when onEnterReplay is given. */
 export interface ReplayEntryProps {
@@ -18,7 +17,11 @@ export interface ControlsProps extends ReplayEntryProps {
   readonly onRecenter: () => void;
 }
 
-/** Pause/Resume, Retry, Recenter and Replay. Map zoom/pan buttons live on the map itself (IssMap). */
+/**
+ * The one action row below the map: Recenter, Pause/Resume, Retry (only when relevant) and
+ * Replay. Zoom and pan live on the map itself (IssMap). Follow is a map behaviour and stays
+ * independent of Pause: pausing never changes Follow, and recentering never resumes updates.
+ */
 export function Controls({
   view,
   follow,
@@ -29,47 +32,49 @@ export function Controls({
 }: ControlsProps) {
   const { snapshot, secondsUntilEligible, actions } = view;
   const retryReasonId = useId();
-  const recenterNoteId = useId();
   const paused = snapshot.transport === 'paused';
   const retryBlocked = snapshot.retryBlockedBy;
   const hasPosition = snapshot.anchor !== null;
+  const showRetry = retryRelevant(snapshot);
+  const exploring = hasPosition && !follow;
 
   return (
-    <div className="controls" role="group" aria-label="Tracker controls">
-      <div className="controls__row">
+    <div className="actions">
+      <div className="actions__row" role="group" aria-label="Tracker controls">
         <button
           type="button"
-          className="button button--primary"
+          className={`button${exploring ? ' button--primary' : ''}`}
+          onClick={onRecenter}
+          disabled={!hasPosition}
+        >
+          Recenter on ISS
+        </button>
+
+        <button
+          type="button"
+          className={`button${paused ? ' button--primary' : ''}`}
           onClick={paused ? actions.resume : actions.pause}
         >
           {paused ? 'Resume updates' : 'Pause updates'}
         </button>
 
-        <button
-          type="button"
-          className="button"
-          onClick={actions.retry}
-          disabled={retryBlocked !== null}
-          aria-describedby={retryBlocked !== null ? retryReasonId : undefined}
-        >
-          Retry now
-        </button>
-
-        <button
-          type="button"
-          className="button"
-          onClick={onRecenter}
-          disabled={!hasPosition}
-          aria-describedby={recenterNoteId}
-        >
-          Recenter on ISS
-        </button>
+        {showRetry && (
+          <button
+            type="button"
+            className="button"
+            onClick={actions.retry}
+            disabled={retryBlocked !== null}
+            aria-describedby={retryBlocked !== null ? retryReasonId : undefined}
+          >
+            Retry now
+          </button>
+        )}
 
         {onEnterReplay !== undefined && (
           <button
             ref={replayButtonRef}
             type="button"
-            className="button"
+            className="button button--quiet"
             onClick={onEnterReplay}
             disabled={!replayAvailable}
           >
@@ -78,21 +83,16 @@ export function Controls({
         )}
       </div>
 
-      {retryBlocked !== null && (
-        <p id={retryReasonId} className="controls__reason" data-testid="retry-reason">
-          {snapshot.transport === 'polling' &&
-          (retryBlocked === 'spacing' || retryBlocked === 'in-flight')
-            ? `Updating automatically every ${trackerPolicy.healthyIntervalMs / 1000} s.`
-            : `Retry unavailable: ${describeRetryBlock(retryBlocked, secondsUntilEligible)}`}
+      {showRetry && retryBlocked !== null && (
+        <p id={retryReasonId} className="actions__reason" data-testid="retry-reason">
+          Retry unavailable: {describeRetryBlock(retryBlocked, secondsUntilEligible)}
         </p>
       )}
-      <p id={recenterNoteId} className="controls__reason" data-testid="follow-state">
-        {!hasPosition
-          ? 'Recenter becomes available after the first position.'
-          : follow
-            ? 'Following: the map moves with the ISS.'
-            : 'Not following. Recenter to follow the ISS again.'}
-      </p>
+      {!hasPosition && (
+        <p className="actions__reason" data-testid="recenter-hint">
+          Recenter and Replay become available after the first position.
+        </p>
+      )}
     </div>
   );
 }

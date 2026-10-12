@@ -102,6 +102,27 @@ describe('App integration (jsdom)', () => {
     expect(fake.calls[0]?.init.referrerPolicy).toBe('no-referrer');
   });
 
+  it('provenance: provider credit link is shown by the App', async () => {
+    fake.queue(json(JSON.stringify(observedCurl)));
+    render(<App />);
+    await advance(100);
+    const links = screen.getAllByRole('link', { name: 'Where the ISS at' });
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    for (const link of links) expect(link).toHaveAttribute('href', 'https://wheretheiss.at/');
+    // The always-visible credit (not just the About text) is present.
+    expect(document.querySelector('.provenance')).toHaveTextContent(
+      'Calculated by Where the ISS at',
+    );
+  });
+
+  it('exactly one polite live region (role=status) is rendered', async () => {
+    render(<App />);
+    await advance(100);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
+    expect(document.querySelectorAll('[aria-live="polite"], [role="status"]')).toHaveLength(1);
+  });
+
   it('A06/A17 StrictMode: one scheduler, single flight, ~12 requests per minute', async () => {
     render(
       <StrictMode>
@@ -149,7 +170,8 @@ describe('App integration (jsdom)', () => {
     setVisibility('visible');
     await advance(60_000);
     expect(fake.calls).toHaveLength(count);
-    expect(screen.getByText(/paused/i)).toBeInTheDocument();
+    expect(screen.getByTestId('updates-state')).toHaveTextContent('Paused');
+    expect(screen.getByTestId('connection')).toHaveTextContent('Updates paused.');
     fireEvent.click(screen.getByRole('button', { name: /resume/i }));
     await advance(100);
     expect(fake.calls).toHaveLength(count + 1);
@@ -215,7 +237,7 @@ describe('App integration (jsdom)', () => {
       headers: { 'Retry-After': new Date(T0_MS + 3_600_000).toUTCString() },
       body: '',
     });
-    render(<App />);
+    const { container } = render(<App />);
     await advance(1_000); // first sample accepted
     vi.setSystemTime(Date.now() + 600_000); // wall jumps; performance.now does not
     await advance(4_000); // wake at 5 s: clock check → clockSuspect, second request → 429
@@ -224,29 +246,33 @@ describe('App integration (jsdom)', () => {
     const retry = () => screen.getByRole('button', { name: /retry/i });
 
     // Before the deadline: truthful pause copy; Retry waits.
-    expect(connection()).toMatch(/clock could not be verified/i);
-    expect(connection()).toMatch(/automatic retry paused/i);
+    expect(connection()).toMatch(/retry timing could not be verified/i);
+    expect(connection()).toMatch(/automatic updates paused/i);
+    expect(connection()).not.toMatch(/retry now is available/i);
     expect(retry()).toBeDisabled();
 
     // After the 60 s minimum wait.
     await advance(61_000);
     expect(fake.calls).toHaveLength(2);
     expect(connection()).not.toMatch(/retrying/i);
-    expect(connection()).toMatch(/automatic updates are paused/i);
-    expect(connection()).toMatch(/retry is available now/i);
+    expect(connection()).toMatch(/automatic updates paused/i);
+    expect(connection()).toMatch(/retry now is available/i);
     expect(retry()).toBeEnabled();
 
     // One simulated hour later: still no automatic request, still no false promise.
     await advance(3_600_000);
     expect(fake.calls).toHaveLength(2);
     expect(connection()).not.toMatch(/retrying/i);
-    expect(connection()).toMatch(/automatic updates are paused/i);
+    expect(connection()).toMatch(/automatic updates paused/i);
 
     // Manual Retry makes exactly one request.
     fireEvent.click(retry());
     await advance(100);
     expect(fake.calls).toHaveLength(3);
-    expect(connection()).not.toMatch(/automatic updates are paused/i);
+    // Recovery clears the hold truthfully: updates run again and no hold notice remains.
+    expect(screen.getByTestId('updates-state')).toHaveTextContent(/^Running$/);
+    expect(screen.queryByTestId('connection')).toBeNull();
+    expect(container.textContent).not.toMatch(/automatic updates paused/i);
   });
 
   it('A17 unmount stops everything: no timers, no further requests', async () => {

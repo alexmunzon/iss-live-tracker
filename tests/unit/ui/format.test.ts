@@ -64,13 +64,15 @@ describe('connection and retry text', () => {
   it('offline names how long ago the last position was calculated', () => {
     const snap = makeSnapshot({ transport: 'offline' });
     expect(describeConnection(snap, fresh, null)).toBe(
-      'Offline. Last position calculated 24 seconds ago.',
+      'You appear to be offline. Last position calculated 24 seconds ago.',
     );
   });
 
   it('retry wait shows the countdown', () => {
     const snap = makeSnapshot({ transport: 'retry-wait', lastFailure: { kind: 'timeout' } });
-    expect(describeConnection(snap, fresh, 18)).toBe('Connection problem, retrying in 18 s');
+    expect(describeConnection(snap, fresh, 18)).toBe(
+      'Source unavailable. Next attempt in 18 seconds.',
+    );
   });
 
   it('R2 time-unverified hold: Retry waits before the deadline, Retry available after', () => {
@@ -88,7 +90,7 @@ describe('connection and retry text', () => {
       clockSuspect: true,
     });
     expect(describeConnection(waiting, fresh, 42)).toBe(
-      'The source asked us to wait, but this device’s clock could not be verified. Automatic retry paused.',
+      'Automatic updates paused because retry timing could not be verified.',
     );
     const expired = makeSnapshot({
       transport: 'retry-wait',
@@ -99,13 +101,13 @@ describe('connection and retry text', () => {
     });
     const text = describeConnection(expired, fresh, null);
     expect(text).toBe(
-      'This device’s clock could not be verified, so automatic updates are paused. Retry is available now.',
+      'Automatic updates paused because retry timing could not be verified. Retry now is available.',
     );
     expect(text).not.toMatch(/retrying/i);
     // Without the hold, an ordinary 429 still counts down.
     const ordinary = makeSnapshot({ transport: 'retry-wait', lastFailure: limited });
     expect(describeConnection(ordinary, fresh, 30)).toBe(
-      'The source is limiting requests, retrying in 30 s',
+      'The source is limiting requests. Next attempt in 30 seconds.',
     );
   });
 
@@ -115,12 +117,14 @@ describe('connection and retry text', () => {
       lastFailure: { kind: 'http', status: 404, retryAfter: null, serverDateMs: null },
     });
     expect(describeConnection(snap, fresh, null)).toBe(
-      'Source unavailable (HTTP 404). Automatic retry stopped.',
+      'Source unavailable (HTTP 404). Automatic updates stopped.',
     );
   });
 
   it('paused', () => {
-    expect(describeConnection(makeSnapshot({ transport: 'paused' }), fresh, null)).toBe('Paused');
+    expect(describeConnection(makeSnapshot({ transport: 'paused' }), fresh, null)).toBe(
+      'Updates paused.',
+    );
   });
 
   it('retry block reasons include the countdown', () => {

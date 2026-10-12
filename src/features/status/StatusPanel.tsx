@@ -1,174 +1,174 @@
-import { useId, useState } from 'react';
-import type { StatusPanelProps } from '../../domain/position';
-import { trackerPolicy } from '../../config/trackerPolicy';
+import { useId, type ReactNode } from 'react';
+import type { MapStatus, TrackerView } from '../../domain/position';
 import {
   CLOCK_SUSPECT_MESSAGE,
   DATA_STATE_LABEL,
+  DATA_STATE_TONE,
   describeConnection,
   describeFailure,
+  describeUpdates,
   formatAge,
-  formatCoordinates,
+  formatLatitude,
+  formatLongitude,
   formatUtc,
   showClockSuspect,
+  type Tone,
 } from './format';
-import { announcementFor, sameAnnounceState, type AnnounceState } from './announce';
-import { Controls, type ReplayEntryProps } from './Controls';
 
 const MERCATOR_LIMIT = 85.0511;
 
-/** Complete text alternative to the map, plus the tracker controls. */
-export function StatusPanel({
-  view,
-  follow,
-  mapStatus,
-  onRecenter,
-  replayAvailable,
-  onEnterReplay,
-  replayButtonRef,
-}: StatusPanelProps & ReplayEntryProps) {
-  const { snapshot, freshness, trailSegments, secondsUntilEligible } = view;
+export interface StatusPanelProps {
+  readonly view: TrackerView;
+  readonly mapStatus: MapStatus;
+}
+
+/** Small warning triangle. Decorative: the words next to it carry the meaning. */
+export function WarnIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M8 1.5 15 14H1L8 1.5Z" fill="currentColor" />
+      <path d="M8 6v4" stroke="var(--color-surface)" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="8" cy="12" r="0.9" fill="var(--color-surface)" />
+    </svg>
+  );
+}
+
+function Notice({ tone, testId, children }: { tone: Tone; testId?: string; children: ReactNode }) {
+  return (
+    <p className={`notice notice--${tone}`} data-testid={testId}>
+      {tone !== 'neutral' && <WarnIcon />}
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/**
+ * Position summary: the complete text alternative to the map. Position first, calculation age
+ * second, then calculation state and update state, which are kept as separate facts.
+ */
+export function StatusPanel({ view, mapStatus }: StatusPanelProps) {
+  const { snapshot, freshness, secondsUntilEligible } = view;
   const headingId = useId();
   const sample = snapshot.anchor?.sample ?? null;
 
-  // Live region: derived during render with the "previous value in state" pattern, so it
-  // changes only when the transition category changes, never on age or coordinate updates.
-  const current: AnnounceState = {
-    hasPosition: snapshot.anchor !== null,
-    data: freshness.state,
-    transport: snapshot.transport,
-  };
-  const [prev, setPrev] = useState<AnnounceState>(current);
-  const [announcement, setAnnouncement] = useState('');
-  if (!sameAnnounceState(prev, current)) {
-    const text = announcementFor(prev, current);
-    setPrev(current);
-    if (text !== null) setAnnouncement(text);
-  }
-
-  const showAbsoluteOnly = freshness.state === 'unverified' || freshness.ageMs === null;
-  const stateClass = `status-badge status-badge--${freshness.state}`;
-  const connection = describeConnection(snapshot, freshness, secondsUntilEligible);
-  const degradedTransport =
-    snapshot.transport === 'retry-wait' ||
-    snapshot.transport === 'offline' ||
-    snapshot.transport === 'blocked';
+  const ageUnknown = freshness.state === 'unverified' || freshness.ageMs === null;
+  const updates = describeUpdates(snapshot);
+  const showConnection = !(snapshot.transport === 'polling' && snapshot.anchor !== null);
+  const connectionTone: Tone =
+    snapshot.transport === 'polling' || snapshot.transport === 'idle'
+      ? 'neutral'
+      : snapshot.transport === 'blocked'
+        ? 'error'
+        : snapshot.transport === 'hidden'
+          ? 'neutral'
+          : 'warn';
+  const badgeTone = DATA_STATE_TONE[freshness.state];
+  const badgeIcon = freshness.state === 'stale' || freshness.state === 'unverified';
 
   return (
-    <section className="status-panel" aria-labelledby={headingId}>
-      <h2 id={headingId} className="status-panel__title">
-        Current position
+    <section className="summary" aria-labelledby={headingId}>
+      <h2 id={headingId} className="visually-hidden">
+        Position summary
       </h2>
+      <div className="strip">
+        <dl className="strip__list">
+          <div className="strip__item strip__item--position">
+            <dt>Position</dt>
+            <dd className="strip__coords" data-testid="coordinates">
+              {sample === null ? (
+                <>
+                  <span className="skeleton" aria-hidden="true" />
+                  <span className="visually-hidden">Not available yet</span>
+                </>
+              ) : (
+                <>
+                  <span>{formatLatitude(sample.latitudeDeg)}</span>
+                  <span className="visually-hidden">,</span>{' '}
+                  <span>{formatLongitude(sample.longitudeDeg)}</span>
+                </>
+              )}
+            </dd>
+          </div>
+          <div className="strip__item strip__item--age">
+            <dt>Calculated</dt>
+            <dd>
+              <span className="strip__value strip__age" data-testid="age">
+                {sample === null
+                  ? '—'
+                  : ageUnknown
+                    ? 'Age unknown'
+                    : formatAge(freshness.ageMs ?? 0)}
+              </span>
+              {sample !== null && (
+                <span className="strip__sub" data-testid="calculated">
+                  {formatUtc(sample.positionTimeMs)}
+                </span>
+              )}
+            </dd>
+          </div>
+          <div className="strip__item">
+            <dt>Calculation</dt>
+            <dd>
+              <span className={`badge badge--${badgeTone}`} data-testid="data-state">
+                {badgeIcon && <WarnIcon />}
+                {snapshot.transport === 'blocked' && sample === null
+                  ? 'No position'
+                  : DATA_STATE_LABEL[freshness.state]}
+              </span>
+            </dd>
+          </div>
+          <div className="strip__item">
+            <dt>Updates</dt>
+            <dd className={`strip__value tone--${updates.tone}`} data-testid="updates-state">
+              {updates.label}
+            </dd>
+          </div>
+        </dl>
+        <p className="strip__note">A calculated position, not direct station telemetry.</p>
+      </div>
 
-      {(mapStatus === 'tiles-failing' || mapStatus === 'init-failed') && (
-        <p className="notice notice--warning" data-testid="map-unavailable">
-          {mapStatus === 'init-failed'
-            ? 'The map could not be started in this browser. All position details are listed here.'
-            : 'Map tiles are not loading right now. The position details here are still updated.'}
-        </p>
-      )}
-
-      {showClockSuspect(snapshot) && (
-        <p className="notice notice--info" data-testid="clock-suspect">
-          {CLOCK_SUSPECT_MESSAGE}
-        </p>
-      )}
-
-      <dl className="status-list">
-        <div className="status-list__row">
-          <dt>Data</dt>
-          <dd>
-            <span className={stateClass} data-testid="data-state">
-              {DATA_STATE_LABEL[freshness.state]}
-            </span>
-          </dd>
-        </div>
-
-        <div className="status-list__row">
-          <dt>Position</dt>
-          <dd className="status-list__coords" data-testid="coordinates">
-            {sample === null
-              ? 'Not available yet'
-              : formatCoordinates(sample.latitudeDeg, sample.longitudeDeg)}
-          </dd>
-        </div>
-
-        <div className="status-list__row">
-          <dt>Calculated</dt>
-          <dd data-testid="calculated">
-            {sample === null ? '—' : formatUtc(sample.positionTimeMs)}
-          </dd>
-        </div>
-
-        <div className="status-list__row">
-          <dt>Age</dt>
-          <dd data-testid="age">
-            {sample === null
-              ? '—'
-              : showAbsoluteOnly
-                ? 'Unknown (see calculated time)'
-                : formatAge(freshness.ageMs ?? 0)}
-          </dd>
-        </div>
-
-        <div className="status-list__row">
-          <dt>Connection</dt>
-          <dd
-            data-testid="connection"
-            className={degradedTransport ? 'status-list__warn' : undefined}
-          >
-            {connection}
-            {snapshot.lastFailure !== null && snapshot.transport !== 'blocked' && (
-              <span className="status-list__detail">
+      {showConnection && (
+        <Notice tone={connectionTone} testId="connection">
+          {describeConnection(snapshot, freshness, secondsUntilEligible)}
+          {snapshot.lastFailure !== null &&
+            snapshot.transport !== 'blocked' &&
+            snapshot.transport !== 'polling' && (
+              <span className="notice__detail" data-testid="last-problem">
                 {' '}
                 Last problem: {describeFailure(snapshot.lastFailure)}.
               </span>
             )}
-          </dd>
-        </div>
-      </dl>
+        </Notice>
+      )}
 
+      {showClockSuspect(snapshot) && (
+        <Notice tone="warn" testId="clock-suspect">
+          {CLOCK_SUSPECT_MESSAGE}
+        </Notice>
+      )}
       {freshness.clockWarning === 'future-skew' && (
-        <p className="notice notice--info">
+        <Notice tone="neutral" testId="clock-skew">
           The source’s time is slightly ahead of this device’s clock, so the age is approximate.
-        </p>
+        </Notice>
       )}
       {freshness.clockWarning === 'time-unverified' && (
-        <p className="notice notice--info">
+        <Notice tone="warn" testId="time-unverified">
           This device’s clock changed unexpectedly, so the age can’t be trusted. The calculated time
-          above is the provider’s own time.
-        </p>
+          shown is the source’s own time.
+        </Notice>
       )}
       {sample !== null && Math.abs(sample.latitudeDeg) > MERCATOR_LIMIT && (
-        <p className="notice notice--info">
+        <Notice tone="neutral">
           This latitude is beyond what the map can draw; the coordinates above are exact.
-        </p>
+        </Notice>
       )}
-
-      {trailSegments.length > 0 && (
-        <p className="status-panel__note" data-testid="trail-note">
-          Trail: observed during this session.
-        </p>
+      {(mapStatus === 'tiles-failing' || mapStatus === 'init-failed') && (
+        <Notice tone="warn" testId="map-unavailable">
+          {mapStatus === 'init-failed'
+            ? 'Map unavailable: it could not be started in this browser. The position above is still updated.'
+            : 'Map unavailable: map images are not loading. The position above is still updated.'}
+        </Notice>
       )}
-
-      <Controls
-        view={view}
-        follow={follow}
-        onRecenter={onRecenter}
-        replayAvailable={replayAvailable}
-        onEnterReplay={onEnterReplay}
-        replayButtonRef={replayButtonRef}
-      />
-
-      <p className="status-panel__credit">
-        Position data:{' '}
-        <a href={trackerPolicy.providerHref} rel="noreferrer">
-          {trackerPolicy.providerName}
-        </a>
-      </p>
-
-      <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
-        {announcement}
-      </p>
     </section>
   );
 }

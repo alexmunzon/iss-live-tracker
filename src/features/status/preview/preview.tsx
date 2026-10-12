@@ -1,11 +1,13 @@
 // Dev-only preview of UI states driven by fixtures. Not part of the production build
 // (vite builds only /index.html). Open /src/features/status/preview/index.html?state=fresh
-// Optional &map=fail points tiles at an unreachable local port to show the failure state.
+// Optional &map=fail points tiles at an unreachable local port to show the failure state, and
+// &follow=off starts in "Exploring map". Uses the real components; no tracker, no API requests.
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../../styles/tokens.css';
 import '../../../styles/app.css';
 import { IssMapCore } from '../../map/IssMap';
+import { Controls } from '../Controls';
 import { StatusPanel } from '../StatusPanel';
 import { TrackerLayout } from '../TrackerLayout';
 import { previewViews, type PreviewViewName } from '../fixtures';
@@ -21,18 +23,13 @@ const tileUrl =
 
 function Preview() {
   const view = previewViews[stateName]();
-  const [follow, setFollow] = useState(true);
+  const [follow, setFollow] = useState(params.get('follow') !== 'off');
   const [recenterToken, setRecenterToken] = useState(0);
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const sample = view.snapshot.anchor?.sample ?? null;
   return (
     <TrackerLayout
-      header={
-        <>
-          <h1>ISS Live Tracker</h1>
-          <p>Preview: {stateName}</p>
-        </>
-      }
+      summary={<StatusPanel view={view} mapStatus={mapStatus} />}
       map={
         <IssMapCore
           position={sample === null ? null : [sample.latitudeDeg, sample.longitudeDeg]}
@@ -44,17 +41,24 @@ function Preview() {
           tileUrl={tileUrl}
         />
       }
-      status={
-        <StatusPanel
+      actions={
+        <Controls
           view={view}
           follow={follow}
-          mapStatus={mapStatus}
           onRecenter={() => {
             setFollow(true);
             setRecenterToken((t) => t + 1);
           }}
+          replayAvailable={sample !== null}
+          onEnterReplay={() => undefined}
         />
       }
+      provenance={
+        <div className="provenance">
+          <p>Preview: {stateName} (fixture data)</p>
+        </div>
+      }
+      about={<p>Dev preview. The real About text is in App.tsx.</p>}
     />
   );
 }
