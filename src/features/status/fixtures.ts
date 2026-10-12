@@ -129,6 +129,31 @@ export const previewViews = {
       freshness: { state: 'delayed', ageMs: 40_000 },
       snapshot: { transport: 'paused', retryBlockedBy: 'paused' },
     }),
+  stalePaused: () =>
+    makeView({
+      freshness: { state: 'stale', ageMs: 132_000 },
+      snapshot: { transport: 'paused', retryBlockedBy: 'paused' },
+      trailSegments: previewTrail,
+    }),
+  /** R2: automatic updates held until a manual Retry; the deadline has passed. */
+  manualHold: () =>
+    makeView({
+      freshness: { state: 'stale', ageMs: 95_000 },
+      snapshot: {
+        transport: 'retry-wait',
+        automaticHold: 'time-unverified',
+        retryBlockedBy: null,
+        clockSuspect: true,
+        lastFailure: { kind: 'http', status: 429, retryAfter: null, serverDateMs: null },
+      },
+      trailSegments: previewTrail,
+    }),
+  unverified: () =>
+    makeView({
+      freshness: { state: 'unverified', ageMs: null, clockWarning: 'time-unverified' },
+      snapshot: { retryBlockedBy: 'spacing' },
+      trailSegments: previewTrail,
+    }),
   clockSuspect: () =>
     makeView({
       snapshot: {

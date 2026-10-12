@@ -1,11 +1,11 @@
-/* Leaflet overrides and map overlay. Import after leaflet.css (IssMap imports it). */
+/* Leaflet overrides and map overlay. Import after leaflet.css (IssMap imports it).
+   The OSM tiles are never filtered or inverted: the dark shell frames the unchanged map. */
 
 .iss-map {
   position: relative;
   height: 100%;
-  min-height: var(--map-height-min);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--color-surface);
 }
@@ -18,76 +18,161 @@
 }
 
 .iss-map__canvas:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: -3px;
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
-/* Marker: className only (no HTML). A ring plus a solid core in the accent colour. */
+/* Station marker: className only (no HTML). Compact SVG with solar arrays, dark core and a
+   white halo, centred on the accepted coordinate. Bundled as a data URI (CSP allows data:). */
 .iss-marker {
   border-radius: 50%;
-  background: var(--color-accent);
-  border: 3px solid #ffffff;
-  box-shadow: 0 0 0 2px var(--color-accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Ccircle cx='15' cy='15' r='15' fill='%23fff'/%3E%3Ccircle cx='15' cy='15' r='12.5' fill='%23122B3A'/%3E%3Crect x='5' y='14.3' width='20' height='1.4' fill='%23fff'/%3E%3Crect x='6' y='9' width='5.2' height='12' rx='0.6' fill='%2370E2CB'/%3E%3Crect x='18.8' y='9' width='5.2' height='12' rx='0.6' fill='%2370E2CB'/%3E%3Cpath d='M6 13h5.2M6 17h5.2M18.8 13H24M18.8 17H24' stroke='%23122B3A' stroke-width='0.8'/%3E%3Crect x='12.6' y='11.6' width='4.8' height='6.8' rx='1' fill='%23fff'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
 }
 
-/* Trail: SVG path; CSS overrides Leaflet's presentation attributes. */
+/* "ISS" label beside the marker; flips left near the right edge (IssMap placeLabel). */
+.iss-marker::after {
+  content: 'ISS';
+  position: absolute;
+  top: 4px;
+  left: 36px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--color-marker-core);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.iss-marker--label-left::after {
+  left: auto;
+  right: 36px;
+}
+
+/* Trail: SVG path; CSS overrides Leaflet's presentation attributes. Visual guide only. */
 .leaflet-overlay-pane path.iss-trail {
-  stroke: var(--color-accent);
+  stroke: var(--color-trail);
   stroke-width: 3;
-  stroke-opacity: 0.6;
-  stroke-dasharray: 6 5;
+  stroke-opacity: 0.85;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
   fill: none;
 }
 
-.iss-map__controls {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  z-index: 1000;
-  display: grid;
-  grid-template-columns: repeat(2, var(--target));
-  gap: var(--space-1);
+/* ---- Overlay controls -------------------------------------------------- */
+
+.map-button,
+.map-toggle {
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
 }
 
 .map-button {
   width: var(--target);
   height: var(--target);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.map-button:hover,
+.map-toggle:hover {
+  border-color: var(--color-accent);
+}
+
+.iss-map__zoom {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1000;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.iss-map__controls {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.iss-map__pad {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.map-toggle {
+  min-height: var(--target);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.map-toggle[aria-expanded='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.iss-map__follow {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 1000;
+  margin: 0;
+  padding: var(--space-1) 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
+  color: var(--color-accent);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 650;
 }
 
-.map-button:hover {
-  border-color: var(--color-accent);
+.iss-map__follow--off {
+  color: var(--color-text-muted);
 }
 
 .iss-map__warning,
 .iss-map__notice,
 .iss-map__fallback {
   position: absolute;
-  left: var(--space-2);
   z-index: 1000;
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
-  background: var(--color-warn-bg);
-  color: var(--color-warn-text);
-  font-size: 0.9rem;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 15px;
 }
 
 .iss-map__warning {
-  top: var(--space-2);
-  right: calc(2 * var(--target) + var(--space-4));
+  top: calc(var(--space-3) + 36px);
+  left: var(--space-3);
+  right: calc(var(--target) + var(--space-5));
 }
 
 .iss-map__notice {
-  bottom: calc(var(--space-5) + var(--space-2));
-  right: var(--space-2);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--space-4));
+  text-align: center;
 }
 
 .iss-map__fallback {
@@ -102,10 +187,11 @@
   margin: var(--space-1) 0;
 }
 
-/* Attribution: always visible, readable at every width. */
+/* Attribution: always visible, readable at every width, clear of Map controls. */
 .leaflet-container .leaflet-control-attribution.iss-attribution {
   display: block;
   padding: 2px 6px;
+  border-radius: 4px 0 0 0;
   font-size: 12px;
   line-height: 1.4;
   background: var(--color-surface);
@@ -114,6 +200,13 @@
 
 .leaflet-container .iss-attribution a {
   color: var(--color-accent);
+}
+
+/* Narrow maps: the attribution can span the bottom edge, so Map controls sits above it. */
+@media (max-width: 419px) {
+  .iss-map__controls {
+    bottom: 40px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

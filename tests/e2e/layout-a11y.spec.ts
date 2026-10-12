@@ -36,6 +36,45 @@ test.describe('A14 responsive layout', () => {
   }
 });
 
+test.describe('A14 320px map overlay', () => {
+  test('320px: no horizontal scroll; Map controls toggle and attribution never overlap', async ({
+    page,
+    tracker,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await tracker.open();
+    await expect(tracker.marker()).toBeVisible();
+    const toggle = page.getByRole('button', { name: 'Map controls' });
+    const attribution = page.locator('.iss-attribution');
+    const noOverlap = async (state: string) => {
+      const overflow = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth,
+        client: document.documentElement.clientWidth,
+      }));
+      expect(overflow.scroll, `horizontal page scroll (${state})`).toBeLessThanOrEqual(
+        overflow.client,
+      );
+      const a = await toggle.boundingBox();
+      const b = await attribution.boundingBox();
+      expect(a, 'toggle box').not.toBeNull();
+      expect(b, 'attribution box').not.toBeNull();
+      if (!a || !b) return;
+      const overlaps =
+        a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+      expect(
+        overlaps,
+        `toggle ${JSON.stringify(a)} overlaps attribution ${JSON.stringify(b)} (${state})`,
+      ).toBe(false);
+    };
+    await expect(toggle).toBeVisible();
+    await expect(attribution).toBeVisible();
+    await noOverlap('collapsed');
+    await toggle.click();
+    await expect(page.getByRole('button', { name: 'Pan north' })).toBeVisible();
+    await noOverlap('expanded');
+  });
+});
+
 // WCAG 1.4.10 Reflow. Browser zoom on a 1280×720 screen is emulated by the equivalent CSS
 // viewport (200% → 640×360, 400% → 320×180); landscape phone is 844×390.
 // "Reachable" here means: reachable by VERTICAL page scroll alone (window.scrollX stays 0),
@@ -64,6 +103,11 @@ test.describe('A14 reflow and landscape layouts', () => {
       // Fully on screen after a scroll, with 1 CSS px tolerance for sub-pixel layout
       // (IntersectionObserver reports e.g. 0.97 for a 17 px link that is 0.5 px short).
       const reachable = async (locator: ReturnType<typeof page.locator>, what: string) => {
+        // The skip link is parked off-screen until keyboard focus reveals it (by design);
+        // focus it first, then require the same on-screen guarantees as every other control.
+        if (await locator.evaluate((el) => el.classList.contains('skip-link'))) {
+          await locator.focus();
+        }
         await locator.scrollIntoViewIfNeeded();
         await expect(locator, `${what} in viewport`).toBeInViewport();
         const box = await locator.boundingBox();
@@ -194,7 +238,7 @@ test.describe('A15 accessibility', () => {
       /recenter/i,
       /zoom in/i,
       /zoom out/i,
-      /pan|move map|north|up/i,
+      /^map controls$/i,
       copy.osm,
     ];
     for (const pattern of required) {
@@ -224,6 +268,10 @@ test.describe('A15 accessibility', () => {
     await expect(tracker.marker()).toBeVisible();
     const live = page.locator('[aria-live="polite"], [role="status"]');
     await expect(live.first()).toBeAttached();
+    // Exactly one live region on the whole page.
+    await expect(page.locator('[role="status"]')).toHaveCount(1);
+    await expect(page.locator('[aria-live]')).toHaveCount(1);
+    await expect(page.locator('[role="status"]')).toHaveAttribute('aria-live', 'polite');
     const before = await live.allTextContents();
     await tracker.advance(4_000);
     expect(await live.allTextContents()).toEqual(before);

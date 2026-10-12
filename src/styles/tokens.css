@@ -1,56 +1,73 @@
-/* Design tokens. Light by default, dark via prefers-color-scheme. */
+/* Design tokens (UI upgrade spec, page 4). Light by default, dark via prefers-color-scheme.
+   Contrast ratios are against --color-surface; see docs/qa-evidence.md. */
 :root {
   color-scheme: light dark;
 
   --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
-  --color-bg: #f6f7f8;
+  --color-bg: #f3f6f8;
   --color-surface: #ffffff;
-  --color-text: #1b1f24;
-  --color-text-muted: #545c66;
-  --color-border: #d5dade;
-  --color-accent: #0b5cad;
+  --color-text: #122b3a;
+  --color-text-muted: #49606b;
+  /* Interactive control edges (>= 3:1). Structural borders use the lighter hairline. */
+  --color-edge: #728896;
+  --color-border: #d9e1e6;
+  --color-accent: #006b61;
   --color-accent-contrast: #ffffff;
-  --color-focus: #0b5cad;
+  --color-focus: #005fcc;
 
-  --color-ok-bg: #e5f3ea;
-  --color-ok-text: #145c2e;
-  --color-warn-bg: #fff4d6;
-  --color-warn-text: #6b4600;
-  --color-danger-bg: #fde8e7;
-  --color-danger-text: #8a1c14;
-  --color-info-bg: #eaf1f9;
-  --color-info-text: #1d3f66;
+  --color-ok-bg: #e3f4f0;
+  --color-ok-text: #006b61;
+  --color-warn-bg: #fdf3dc;
+  --color-warn-text: #825b00;
+  --color-danger-bg: #fbe9e9;
+  --color-danger-text: #a32d2d;
+  --color-info-bg: #e8f0f3;
+  --color-info-text: #122b3a;
+
+  /* The station marker sits on the unchanged OSM basemap, so it does not follow the theme. */
+  --color-marker-core: #122b3a;
+  --color-trail: #006b61;
 
   --radius: 6px;
+  --radius-card: 10px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
+  --space-6: 32px;
   --target: 44px;
-  --map-height-mobile: 56vh;
-  --map-height-min: 320px;
+  --page-pad: 32px;
+  --map-height-min: 220px;
+  --motion: 150ms ease-out;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #121417;
-    --color-surface: #1b1f24;
-    --color-text: #e8eaed;
-    --color-text-muted: #a7afb8;
-    --color-border: #343a42;
-    --color-accent: #6cb2ff;
-    --color-accent-contrast: #0b1724;
-    --color-focus: #8cc4ff;
+    --color-bg: #0b141c;
+    --color-surface: #14232d;
+    --color-text: #f4f7fa;
+    --color-text-muted: #b8c7d2;
+    --color-edge: #708793;
+    --color-border: #263945;
+    --color-accent: #70e2cb;
+    --color-accent-contrast: #0b141c;
+    --color-focus: #82b1ff;
 
-    --color-ok-bg: #173323;
-    --color-ok-text: #9fdcb3;
-    --color-warn-bg: #3a2e10;
-    --color-warn-text: #f5d58a;
-    --color-danger-bg: #3d1a17;
-    --color-danger-text: #f6b4ad;
-    --color-info-bg: #18283b;
-    --color-info-text: #b6d3f2;
+    --color-ok-bg: #12332e;
+    --color-ok-text: #70e2cb;
+    --color-warn-bg: #3a2d10;
+    --color-warn-text: #f3c56b;
+    --color-danger-bg: #3d1d1c;
+    --color-danger-text: #ffaaa3;
+    --color-info-bg: #1b3140;
+    --color-info-text: #f4f7fa;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms linear;
   }
 }

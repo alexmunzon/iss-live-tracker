@@ -233,12 +233,39 @@ describe('IssMap', () => {
     const zoomIn = vi.spyOn(m, 'zoomIn');
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(zoomIn).toHaveBeenCalled();
+    // Pan buttons stay hidden until the 'Map controls' toggle is opened.
+    expect(screen.queryByRole('button', { name: 'Pan north' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Map controls' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Pan north' }));
     expect(panBy.mock.calls.at(-1)?.[0]).toEqual([0, -160]);
     for (const name of ['Zoom out', 'Pan south', 'Pan west', 'Pan east']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(onUserMoved).toHaveBeenCalled();
+  });
+
+  it('Map controls: Escape closes the pan pad and returns focus to the toggle', () => {
+    render(<IssMap {...props({ position: [10, 20] })} />);
+    const toggle = screen.getByRole('button', { name: 'Map controls' });
+    fireEvent.click(toggle);
+    const north = screen.getByRole('button', { name: 'Pan north' });
+    north.focus();
+    fireEvent.keyDown(north, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Pan north' })).toBeNull();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
+  });
+
+  it('follow chip reads Following ISS or Exploring map, only once there is a position', () => {
+    const { rerender } = render(<IssMap {...props({ position: null })} />);
+    expect(screen.queryByTestId('follow-state')).toBeNull();
+    rerender(<IssMap {...props({ position: [10, 20], follow: true })} />);
+    expect(screen.getByTestId('follow-state')).toHaveTextContent('Following ISS');
+    rerender(<IssMap {...props({ position: [10, 20], follow: false })} />);
+    expect(screen.getByTestId('follow-state')).toHaveTextContent('Exploring map');
   });
 
   it('A13: no marker while position is null', () => {
@@ -278,7 +305,7 @@ describe('IssMap', () => {
     render(<IssMap {...props({ onStatusChange })} />);
     expect(onStatusChange).toHaveBeenCalledWith('init-failed');
     expect(await screen.findByTestId('map-fallback')).toHaveTextContent(
-      'The map could not be started',
+      'Map unavailable. It could not be started in this browser.',
     );
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
   });

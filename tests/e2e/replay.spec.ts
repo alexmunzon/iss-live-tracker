@@ -96,7 +96,9 @@ test.describe('Mission Replay', () => {
     await failures.first().click();
     await expect(page.getByTestId('replay-data-state')).toHaveText('Stale');
     await expect(page.getByTestId('replay-age')).toHaveText(/1 minute ago/);
-    await expect(page.getByTestId('replay-connection')).toContainText(/retrying/i);
+    await expect(page.getByTestId('replay-connection')).toHaveText(
+      /^Source unavailable\. Next attempt in \d+ seconds?\.$/,
+    );
 
     // Time passes while replaying: still nothing on the network.
     await tracker.advance(20_000);
@@ -148,7 +150,7 @@ test.describe('Mission Replay', () => {
     await tracker.open();
     await tracker.advance(5_000);
     await page.getByRole('button', { name: 'Pause updates' }).click();
-    await expect(page.getByTestId('connection')).toHaveText(/^Paused/);
+    await expect(page.getByTestId('connection')).toHaveText(/^Updates paused\./);
     const requests = iss.requests.length;
 
     await enterReplay(page);
@@ -158,7 +160,7 @@ test.describe('Mission Replay', () => {
 
     await expect(replayButton(page)).toBeFocused();
     await expect(page.getByRole('button', { name: 'Resume updates' })).toBeVisible();
-    await expect(page.getByTestId('connection')).toHaveText(/^Paused/);
+    await expect(page.getByTestId('connection')).toHaveText(/^Updates paused\./);
     await expect(page.getByRole('status').filter({ hasText: /Back to live/ })).toHaveText(
       'Back to live. Updates are still paused.',
     );

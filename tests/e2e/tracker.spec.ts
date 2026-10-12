@@ -38,12 +38,15 @@ test.describe('tracking flows', () => {
     await expect(tracker.marker()).toBeVisible();
     iss.setFallback(() => ({ status: 503, body: 'down' }));
     await tracker.advance(6_000);
-    await expect(page.getByText(copy.retrying).first()).toBeVisible();
+    await expect(page.getByTestId('connection')).toHaveText(
+      /^Source unavailable\. Next attempt in \d+ seconds?\./,
+    );
+    await expect(page.getByTestId('updates-state')).toHaveText('Retrying');
     await expect(tracker.marker()).toBeVisible();
     await expect(page.getByText(fmt.lat('45.01', 'N')).first()).toBeVisible();
 
     await tracker.advance(55_000); // total 61 s since the sample
-    await expect(page.getByText(copy.stale).first()).toBeVisible();
+    await expect(page.getByTestId('data-state')).toHaveText('Stale');
     await expect(tracker.marker()).toBeVisible();
 
     iss.setFallback((now) =>
@@ -52,8 +55,11 @@ test.describe('tracking flows', () => {
     await tracker.advance(65_000);
     await expect(page.getByText(fmt.lat('10.00', 'N')).first()).toBeVisible();
     await expect(page.getByText(fmt.lon('20.00', 'E')).first()).toBeVisible();
-    await expect(page.getByText(copy.stale)).toHaveCount(0);
-    await expect(page.getByText(copy.retrying)).toHaveCount(0);
+    // The About text legitimately explains "Stale", so assert the badge and notice themselves.
+    await expect(page.getByTestId('data-state')).toHaveText('Fresh');
+    await expect(page.getByTestId('updates-state')).toHaveText('Running');
+    await expect(page.getByTestId('connection')).toHaveCount(0);
+    await expect(page.getByTestId('last-problem')).toHaveCount(0);
   });
 
   test('A13 first request fails: empty state, no marker, no fake (0, 0)', async ({
@@ -63,7 +69,9 @@ test.describe('tracking flows', () => {
   }) => {
     iss.setFallback(() => ({ status: 503, body: 'down' }));
     await tracker.open();
-    await expect(page.getByText(copy.retrying).first()).toBeVisible();
+    await expect(page.getByTestId('updates-state')).toHaveText('Retrying');
+    await expect(page.getByTestId('connection')).toHaveText(/^Source unavailable\./);
+    await expect(page.getByTestId('data-state')).toHaveText('Waiting');
     await expect(page.getByText(copy.empty).first()).toBeVisible();
     await expect(tracker.marker()).toHaveCount(0);
     await expect(page.getByText(/0\.00\s*°?\s*[NS]\b/)).toHaveCount(0);
@@ -76,7 +84,8 @@ test.describe('tracking flows', () => {
   }) => {
     iss.setFallback(() => ({ abort: 'connectionreset' }));
     await tracker.open();
-    await expect(page.getByText(copy.retrying).first()).toBeVisible();
+    await expect(page.getByTestId('updates-state')).toHaveText('Retrying');
+    await expect(page.getByTestId('connection')).toHaveText(/^Source unavailable\./);
     await expect(tracker.marker()).toHaveCount(0);
   });
 
@@ -112,11 +121,14 @@ test.describe('tracking flows', () => {
     // A future-skewed sample is capped at Delayed; assert the badge itself, not page text.
     await expect(page.getByTestId('data-state')).toHaveText('Delayed');
     await expect(page.getByTestId('data-state')).toHaveCount(1);
+    // R3 regression: the +20 s sample reads Delayed AND the future-skew note is present.
+    await expect(page.getByTestId('clock-skew')).toBeVisible();
+    await expect(page.getByTestId('clock-skew')).toHaveText(/ahead of this device.{0,2}s? clock/i);
   });
 
   test('trail note is shown once a trail exists', async ({ page, tracker }) => {
     await tracker.open();
     await tracker.advance(10_000);
-    await expect(page.getByText(copy.trailNote).first()).toBeVisible();
+    await expect(page.getByTestId('trail-note')).toHaveText(copy.trailNote);
   });
 });

@@ -8,8 +8,10 @@ import { toTrailSegments } from '../domain/trail';
 import { IssMap } from '../features/map/IssMap';
 import { ReplayPanel } from '../features/replay/ReplayPanel';
 import { useReplay } from '../features/replay/useReplay';
+import { Controls } from '../features/status/Controls';
 import { StatusPanel } from '../features/status/StatusPanel';
 import { TrackerLayout } from '../features/status/TrackerLayout';
+import { useLiveRegionText, useStatusAnnouncement } from '../features/status/useStatusAnnouncement';
 import { useTracker, type TrackerEnvironment } from '../features/tracker/useTracker';
 
 export interface AppProps {
@@ -45,65 +47,78 @@ export function App({ environment }: AppProps = {}) {
     setRecenterToken((token) => token + 1);
   }, []);
 
+  const statusAnnouncement = useStatusAnnouncement(view);
+  const liveText = useLiveRegionText(statusAnnouncement, replay.announcement, session !== null);
+  const trailShown = (replayTrailSegments ?? view.trailSegments).length > 0;
+
   return (
-    <>
-      <TrackerLayout
-        header={
-          <>
-            <h1>ISS Live Tracker</h1>
-            <p className="tracker-header__lede">
-              Where the International Space Station is, and how recent that position is.
-            </p>
-          </>
-        }
-        map={
-          <IssMap
-            position={position}
-            trailSegments={replayTrailSegments ?? view.trailSegments}
-            follow={follow}
-            onUserMoved={onUserMoved}
-            recenterToken={recenterToken}
-            onStatusChange={setMapStatus}
+    <TrackerLayout
+      summary={
+        session === null ? (
+          <StatusPanel view={view} mapStatus={mapStatus} />
+        ) : (
+          <ReplayPanel
+            log={session.log}
+            index={session.index}
+            onSelect={replay.select}
+            onExit={replay.exit}
           />
-        }
-        status={
-          <>
-            {session === null ? (
-              <StatusPanel
-                view={view}
-                follow={follow}
-                mapStatus={mapStatus}
-                onRecenter={onRecenter}
-                replayAvailable={replay.canEnter}
-                onEnterReplay={replay.enter}
-                replayButtonRef={replay.replayButtonRef}
-              />
-            ) : (
-              <ReplayPanel
-                log={session.log}
-                index={session.index}
-                onSelect={replay.select}
-                onExit={replay.exit}
-              />
-            )}
-            {/* Always mounted, so entering and leaving Replay are announced reliably. */}
-            <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
-              {replay.announcement}
+        )
+      }
+      map={
+        <IssMap
+          position={position}
+          trailSegments={replayTrailSegments ?? view.trailSegments}
+          follow={follow}
+          onUserMoved={onUserMoved}
+          recenterToken={recenterToken}
+          onStatusChange={setMapStatus}
+        />
+      }
+      actions={
+        session === null ? (
+          <Controls
+            view={view}
+            follow={follow}
+            onRecenter={onRecenter}
+            replayAvailable={replay.canEnter}
+            onEnterReplay={replay.enter}
+            replayButtonRef={replay.replayButtonRef}
+          />
+        ) : undefined
+      }
+      provenance={
+        <div className="provenance">
+          <p>
+            Calculated by{' '}
+            <a href={trackerPolicy.providerHref} rel="noopener noreferrer" target="_blank">
+              {trackerPolicy.providerName}
+            </a>
+          </p>
+          {trailShown && (
+            <p className="legend" data-testid="trail-note">
+              <span className="legend__line" aria-hidden="true" />
+              Observed during this session
             </p>
-          </>
-        }
-      />
-      <footer className="tracker-footer">
-        <details>
-          <summary>About this data and your privacy</summary>
+          )}
+        </div>
+      }
+      about={
+        <>
           <p>
             Positions are calculated by{' '}
             <a href={trackerPolicy.providerHref} rel="noopener noreferrer" target="_blank">
               {trackerPolicy.providerName}
             </a>{' '}
             from published orbital data. They are estimates, not live telemetry from the station,
-            and no accuracy is guaranteed. The trail shows only positions received while this page
-            has been open.
+            and no accuracy is guaranteed. “Fresh” means the source calculated the position within
+            the last {trackerPolicy.freshMaxAgeMs / 1000} seconds; “Delayed” up to{' '}
+            {trackerPolicy.delayedMaxAgeMs / 1000} seconds; “Stale” anything older. The age always
+            counts from the source’s calculation time, not from when this browser received it.
+          </p>
+          <p>
+            The trail shows only positions received while this page has been open. Lines between
+            points are visual guides, not measured intermediate positions or a predicted orbit.
           </p>
           <p>
             Your browser requests positions from api.wheretheiss.at and map images from
@@ -119,8 +134,13 @@ export function App({ environment }: AppProps = {}) {
             </a>
             .
           </p>
-        </details>
-      </footer>
-    </>
+        </>
+      }
+      liveRegion={
+        <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+          {liveText}
+        </p>
+      }
+    />
   );
 }

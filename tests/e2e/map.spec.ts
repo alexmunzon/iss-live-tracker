@@ -24,9 +24,12 @@ test.describe('map', () => {
     await tracker.advance(1_000); // let any pan animation finish
     const map = tracker.map();
     const mapCenter = await centerOf(map);
+    // The map centre is re-read on every call: clicking Recenter (below the map) can scroll
+    // the page, which moves the whole map on screen without moving the marker within it.
     const near = async (tolerance: number) => {
       const m = await centerOf(tracker.marker());
-      return Math.hypot(m.x - mapCenter.x, m.y - mapCenter.y) <= tolerance;
+      const c = await centerOf(map);
+      return Math.hypot(m.x - c.x, m.y - c.y) <= tolerance;
     };
     await expect.poll(() => near(40)).toBe(true);
 
@@ -60,6 +63,100 @@ test.describe('map', () => {
       await tracker.advance(1_000);
       await expect.poll(() => near(40)).toBe(true);
     }
+  });
+
+  test('Map controls disclosure: four 44px pan buttons, pan ends follow, Escape closes and refocuses', async ({
+    page,
+    tracker,
+  }) => {
+    await tracker.open();
+    await expect(tracker.marker()).toBeVisible();
+    const toggle = page.getByRole('button', { name: 'Map controls' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    for (const dir of ['north', 'south', 'west', 'east']) {
+      await expect(page.getByRole('button', { name: `Pan ${dir}` })).toHaveCount(0);
+    }
+    // Zoom stays visible without opening the disclosure.
+    await expect(page.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Zoom out' })).toBeVisible();
+    await expect(page.getByTestId('follow-state')).toHaveText('Following ISS');
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    for (const dir of ['north', 'south', 'west', 'east']) {
+      const button = page.getByRole('button', { name: `Pan ${dir}` });
+      await expect(button).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box, `Pan ${dir} has a box`).not.toBeNull();
+      expect(box?.width, `Pan ${dir} width`).toBeGreaterThanOrEqual(44);
+      expect(box?.height, `Pan ${dir} height`).toBeGreaterThanOrEqual(44);
+    }
+
+    // A pan click is a user move: follow ends.
+    await page.getByRole('button', { name: 'Pan north' }).click();
+    await expect(page.getByTestId('follow-state')).toHaveText('Exploring map');
+
+    // Escape from inside the pad closes it and returns focus to the toggle.
+    await page.getByRole('button', { name: 'Pan west' }).focus();
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Pan north' })).toHaveCount(0);
+  });
+
+  test('keyboard: Map controls toggle opens with Enter and Escape closes it', async ({
+    page,
+    tracker,
+  }) => {
+    await tracker.open();
+    await expect(tracker.marker()).toBeVisible();
+    const toggle = page.getByRole('button', { name: 'Map controls' });
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: 'Pan east' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+  });
+
+  test('Recenter on ISS restores Following ISS without changing the zoom level', async ({
+    page,
+    tracker,
+  }) => {
+    await tracker.open();
+    await expect(tracker.marker()).toBeVisible();
+    const tileLevels = async () => {
+      const levels = await page
+        .locator('.leaflet-tile')
+        .evaluateAll((els) =>
+          els.map(
+            (e) =>
+              e.getAttribute('src')?.match(/^https:\/\/tile\.openstreetmap\.org\/(\d+)\//)?.[1] ??
+              'none',
+          ),
+        );
+      return [...new Set(levels)].sort();
+    };
+    const settledLevels = async () => {
+      await tracker.advance(250);
+      return tileLevels();
+    };
+    let initial: string[] = [];
+    await expect
+      .poll(async () => (initial = await settledLevels()).length, { timeout: 10_000 })
+      .toBe(1);
+    const zoomed = String(Number(initial[0]) + 1);
+
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await expect.poll(settledLevels, { timeout: 10_000 }).toEqual([zoomed]);
+    await expect(page.getByTestId('follow-state')).toHaveText('Exploring map');
+
+    await page.getByRole('button', { name: 'Recenter on ISS' }).click();
+    await expect(page.getByTestId('follow-state')).toHaveText('Following ISS');
+    await tracker.advance(1_000);
+    await expect.poll(settledLevels, { timeout: 10_000 }).toEqual([zoomed]);
+    await expect(page.getByTestId('follow-state')).toHaveText('Following ISS');
   });
 
   test('A12 zoom by the user is kept when following', async ({ page, tracker, iss }) => {

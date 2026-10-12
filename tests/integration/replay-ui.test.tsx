@@ -80,7 +80,7 @@ describe('Mission Replay UI (integration)', () => {
 
     expect(replayHeading()).toHaveFocus();
     expect(screen.getByTestId('replay-not-live')).toHaveTextContent(/not live/i);
-    expect(screen.queryByRole('heading', { name: 'Current position' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Position summary' })).toBeNull();
     expect(screen.queryByTestId('coordinates')).toBeNull();
     // Defaults to the newest event.
     expect(slider()).toHaveValue(slider().getAttribute('max'));
@@ -167,7 +167,7 @@ describe('Mission Replay UI (integration)', () => {
 
     fireEvent.click(backToLive());
     expect(screen.queryByRole('heading', { name: /replay/i })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Current position' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Position summary' })).toBeInTheDocument();
     // The newest REAL position, never the last scrubbed one, with its real age.
     expect(text('coordinates')).toBe('30.00° N, 40.00° E');
     expect(text('calculated')).toMatch(/14:01:33 UTC/);
@@ -192,7 +192,8 @@ describe('Mission Replay UI (integration)', () => {
     fireEvent.click(backToLive());
 
     expect(screen.getByRole('button', { name: /resume updates/i })).toBeInTheDocument();
-    expect(text('connection')).toMatch(/^Paused/);
+    expect(text('connection')).toBe('Updates paused.');
+    expect(text('updates-state')).toBe('Paused');
     expect(replayButton()).toHaveFocus();
     expect(liveText()).toMatch(/Back to live\. Updates are still paused\./);
     await advance(30_000);
@@ -209,7 +210,8 @@ describe('Mission Replay UI (integration)', () => {
     await advance(10_000);
     fireEvent.click(backToLive());
 
-    expect(text('connection')).toMatch(/^Offline/);
+    expect(text('connection')).toMatch(/^You appear to be offline\./);
+    expect(text('updates-state')).toBe('Offline');
     expect(liveText()).toMatch(
       /Back to live\. Offline: updates resume when the connection returns\./,
     );

@@ -17,10 +17,16 @@ export const PAN_STEP_PX = 160;
 /** Consecutive tile errors (after at least one load) before the map is reported failing. */
 export const TILE_ERROR_THRESHOLD = 3;
 
-/** Smallest zoom at which one world copy is at least as wide as the map (256 px tiles). */
+/** Highest minimum zoom we ever impose; wider maps than this (> 4096 px) are not expected. */
+export const MAX_FIT_ZOOM = 4;
+
+/**
+ * Smallest zoom at which one world copy is at least as wide as the map (256 px tiles), so the
+ * map never shows empty bands beside the world. Capped at MAX_FIT_ZOOM.
+ */
 export function fitWorldZoom(widthPx: number): number {
   if (!Number.isFinite(widthPx) || widthPx <= 256) return 0;
-  return Math.min(3, Math.floor(Math.log2(widthPx / 256)));
+  return Math.min(MAX_FIT_ZOOM, Math.ceil(Math.log2(widthPx / 256)));
 }
 
 /** True when a move between these longitudes crosses ±180 (draw as a jump, not a 358° sweep). */
