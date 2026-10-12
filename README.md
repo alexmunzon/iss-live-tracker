@@ -6,13 +6,13 @@
 
 **Live demo:** **[iss-live-tracker-ecru.vercel.app](https://iss-live-tracker-ecru.vercel.app)**
 
-![ISS Live Tracker: world map with the ISS marker and a status panel showing a Fresh position, its UTC calculation time, age and connection state](docs/images/desktop-light.png)
+![ISS Live Tracker: a position strip (coordinates, calculated 2 seconds ago, Fresh, updates Running) above a full-width world map with the ISS marker over Southeast Asia](docs/images/desktop-light.png)
 
 A small static web app (React, TypeScript, Leaflet) that polls a public ISS position API every five seconds and shows the station on a world map. The point of the project is not the map. It is doing the unglamorous parts properly: telling the truth when data is late, never hammering a free API, surviving bad responses and wrong device clocks, and proving all of that with tests.
 
 ## What's hard about this
 
-- **Honest data age, separate from connection state.** "Connected" and "fresh" are different facts. Age starts from the provider's timestamp when a sample arrives and then advances with a monotonic clock (`performance.now()`), so changing the device clock can't make data look fresher; if wall time and monotonic time disagree by more than 5 s, the age is marked unverified. The UI can truthfully say "Offline. Last position calculated 24 seconds ago." Fresh ≤ 15 s, Delayed ≤ 60 s, Stale after that.
+- **Honest data age, separate from connection state.** "Connected" and "fresh" are different facts. Age starts from the provider's timestamp when a sample arrives and then advances with a monotonic clock (`performance.now()`), so changing the device clock can't make data look fresher; if wall time and monotonic time disagree by more than 5 s, the age is marked unverified. The UI can truthfully say "You appear to be offline. Last position calculated 24 seconds ago." The layout keeps three meanings apart on purpose: _Following ISS_ is map behaviour, _Fresh_ is data age, _Running_ is update scheduling. Fresh ≤ 15 s, Delayed ≤ 60 s, Stale after that.
 - **One polite poller.** A single-flight scheduler (never two requests at once, starts at least 5 s apart) backs off 10 → 20 → 40 → 60 s on failure (plus up to 20% random jitter, never above 60 s), honours a valid `Retry-After` on `429` but waits at least 60 s when the header is missing or unreadable and never more than 1 hour, stops automatic retries on client errors such as `401/403/404`, and pauses while the tab is hidden with no catch-up burst on return.
 - **Wrong clocks, found from live data.** Real samples often arrived about one second "in the future" because the visitor's clock and the provider's clock disagree slightly. Without a tolerance, healthy data showed as "Delayed". The fix (2 s tolerance, decision D16) came from watching the real API, not from the spec.
 - **Untrusted input, handled like it.** Every response is validated without coercion (no `"45"` becoming `45`), bodies are capped at 64 KiB with a bounded stream reader, the 8 s timeout covers reading the body, redirects are rejected, and remote text is never rendered as HTML. Late results from aborted or superseded requests are discarded by a generation counter, so they can never roll the display back.
@@ -23,12 +23,12 @@ A small static web app (React, TypeScript, Leaflet) that polls a public ISS posi
 
 | Layer              | What runs                                                                                                                                                                          | Where                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Unit + integration | 18 files / 497 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                             | `tests/unit`, `tests/integration`            |
-| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (123/123): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
+| Unit + integration | 19 files / 518 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                             | `tests/unit`, `tests/integration`            |
+| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (135/135): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
 | CI                 | Every push and pull request runs all of the above. No secrets; the ISS API and map tiles are intercepted, so CI never sends traffic to real providers                              | `.github/workflows/ci.yml`                   |
 | Evidence           | Each acceptance criterion (A01–A20) mapped to its tests, with what is still manual                                                                                                 | [`docs/qa-evidence.md`](docs/qa-evidence.md) |
 
-Bundle: about 123 kB gzipped JavaScript (budget 250 kB). Runtime dependencies: React, React DOM and Leaflet only.
+Bundle: about 128 kB gzipped JavaScript (budget 250 kB). Runtime dependencies: React, React DOM and Leaflet only.
 
 ## How it was built
 
