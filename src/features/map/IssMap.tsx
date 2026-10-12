@@ -70,14 +70,16 @@ export function IssMapCore({
   const programmaticRef = useRef(0);
   const callbacksRef = useRef({ onUserMoved, onStatusChange });
   const positionRef = useRef<LatLngTuple | null>(position);
+  const followRef = useRef(follow);
   const lastRecenterRef = useRef(recenterToken);
   const [initFailed, setInitFailed] = useState(false);
   const [tilesFailing, setTilesFailing] = useState(false);
 
-  // Keep the latest callbacks/position for Leaflet listeners. Declared first so it runs first.
+  // Keep the latest props for Leaflet listeners. Declared first so it runs first.
   useEffect(() => {
     callbacksRef.current = { onUserMoved, onStatusChange };
     positionRef.current = position;
+    followRef.current = follow;
   });
 
   // Map lifecycle: exactly one L.Map per mounted container; Strict Mode safe.
@@ -173,6 +175,11 @@ export function IssMapCore({
               const min = fitWorldZoom(el.clientWidth);
               if (map.getZoom() < min) map.setZoom(min, { animate: false });
               map.setMinZoom(min);
+              // A resize brings no new position (paused, duplicate sample), so re-apply the
+              // follow pan here or a clamped centre can leave the marker off-screen (R1).
+              // With follow off the user's view is kept.
+              const p = positionRef.current;
+              if (followRef.current && p !== null) map.panTo([p[0], p[1]], { animate: false });
             } finally {
               programmaticRef.current -= 1;
             }
