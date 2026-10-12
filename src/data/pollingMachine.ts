@@ -205,6 +205,7 @@ export function createPollingScheduler(deps: PollingSchedulerDeps): PollingSched
       consecutiveFailures,
       nextEligibleMonoMs: nextEligible(now),
       retryBlockedBy: retryBlockedBy(now),
+      automaticHold: timeUnverifiedHold ? 'time-unverified' : null,
       clockSuspect,
       diagnostics,
     };
@@ -220,6 +221,7 @@ export function createPollingScheduler(deps: PollingSchedulerDeps): PollingSched
       a.consecutiveFailures === b.consecutiveFailures &&
       a.nextEligibleMonoMs === b.nextEligibleMonoMs &&
       a.retryBlockedBy === b.retryBlockedBy &&
+      a.automaticHold === b.automaticHold &&
       a.clockSuspect === b.clockSuspect &&
       a.diagnostics === b.diagnostics
     );

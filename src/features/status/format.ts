@@ -131,8 +131,11 @@ export function describeConnection(
       if (anchor === null) return 'Connecting to the source.';
       return `Connected. Updating every ${trackerPolicy.healthyIntervalMs / 1000} s.`;
     case 'retry-wait':
-      if (snapshot.retryBlockedBy === 'time-unverified') {
-        return 'The source asked us to wait, but this device’s clock could not be verified. Automatic retry paused.';
+      if (snapshot.automaticHold === 'time-unverified') {
+        // Never promise an automatic retry here: only a manual Retry can lift this hold.
+        return snapshot.retryBlockedBy === null
+          ? 'This device’s clock could not be verified, so automatic updates are paused. Retry is available now.'
+          : 'The source asked us to wait, but this device’s clock could not be verified. Automatic retry paused.';
       }
       if (lastFailure?.kind === 'http' && lastFailure.status === 429) {
         return `The source is limiting requests, retrying ${inSeconds(secondsUntilEligible)}`;

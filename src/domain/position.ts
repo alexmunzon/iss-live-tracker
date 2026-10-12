@@ -209,6 +209,9 @@ export type TransportStatus =
   /** Definitive source/config error (401/403/404 or other non-retryable 4xx). No automatic retry. */
   | 'blocked';
 
+/** Date-form Retry-After with an untrusted clock and no readable server Date: manual Retry only. */
+export type AutomaticHoldReason = 'time-unverified';
+
 export type RetryBlockReason =
   | 'in-flight'
   /** Less than healthyIntervalMs since the previous request start. */
@@ -252,6 +255,11 @@ export interface TrackerSnapshot {
   readonly nextEligibleMonoMs: number | null;
   /** Why Retry cannot run right now; null when Retry would start a request immediately. */
   readonly retryBlockedBy: RetryBlockReason | null;
+  /**
+   * Why automatic requests are held until a manual Retry, independent of retryBlockedBy;
+   * null when the scheduler may poll on its own. Survives the server deadline.
+   */
+  readonly automaticHold: AutomaticHoldReason | null;
   /** Set when a wall/monotonic jump was observed and not yet resolved by a fresh accept. */
   readonly clockSuspect: boolean;
   /** Bounded ring, newest last, <= diagnosticsLimit. */
