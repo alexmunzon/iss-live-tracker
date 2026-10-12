@@ -154,7 +154,11 @@ export function IssMapCore({
     // The overlay pane holds only the decorative trail SVG (the status panel already states it).
     map.getPane('overlayPane')?.setAttribute('aria-hidden', 'true');
 
-    const userMoved = () => callbacksRef.current.onUserMoved();
+    // Follow ends now, not at the next render, so a resize mid-gesture cannot pan over the user.
+    const userMoved = () => {
+      followRef.current = false;
+      callbacksRef.current.onUserMoved();
+    };
     const onZoomStart = () => {
       if (programmaticRef.current === 0) userMoved();
     };
@@ -267,6 +271,7 @@ export function IssMapCore({
   const userAction = (act: (map: L.Map, animate: boolean) => void) => {
     const map = mapRef.current;
     if (map === null) return;
+    followRef.current = false;
     callbacksRef.current.onUserMoved();
     act(map, !prefersReducedMotion());
   };
