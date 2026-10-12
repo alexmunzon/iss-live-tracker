@@ -272,3 +272,109 @@ a {
 .tracker-footer a {
   color: var(--color-accent);
 }
+
+/* ---- Mission Replay ---------------------------------------------------- */
+
+.replay-panel .status-panel__title:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.replay-panel__banner {
+  font-weight: 600;
+}
+
+.replay-scrubber {
+  margin: 0 0 var(--space-3);
+}
+
+.replay-scrubber__label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
+}
+
+.replay-scrubber__input {
+  display: block;
+  width: 100%;
+  min-height: var(--target);
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.replay-times {
+  margin: var(--space-3) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.replay-times__item {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.replay-times dt {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.replay-times dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.replay-events__title {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 0.95rem;
+}
+
+.replay-events {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.replay-events__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.replay-events__item {
+  display: block;
+  width: 100%;
+  min-height: var(--target);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-left: 4px solid transparent;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.replay-events__item:focus-visible {
+  outline-offset: -3px;
+}
+
+.replay-events__item:hover {
+  background: var(--color-info-bg);
+}
+
+.replay-events__item[aria-current='true'] {
+  border-left-color: var(--color-accent);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  font-weight: 650;
+}
+
+.replay-events__time {
+  font-variant-numeric: tabular-nums;
+}

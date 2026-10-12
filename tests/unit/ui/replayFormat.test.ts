@@ -1,0 +1,228 @@
+import { describe, expect, it } from 'vitest';
+import type {
+  DiagnosticCode,
+  FreshnessAnchor,
+  TransportStatus,
+} from '../../../src/domain/position';
+import type { ReplayEvent, ReplayEventKind, ReplayLog } from '../../../src/domain/replay';
+import { EMPTY_TRAIL } from '../../../src/domain/trail';
+import {
+  DIAGNOSTIC_EVENT_LABEL,
+  REQUEST_EVENT_LABEL,
+  TRANSPORT_EVENT_LABEL,
+  describeReplayEvent,
+  replayConnection,
+  replayValueText,
+  formatUtcTime,
+} from '../../../src/features/replay/replayFormat';
+import {
+  REPLAY_ENTERED_ANNOUNCEMENT,
+  backToLiveAnnouncement,
+} from '../../../src/features/status/announce';
+import { T0_MS } from '../../fixtures/canonical/index';
+
+const ALL_TRANSPORTS: readonly TransportStatus[] = [
+  'idle',
+  'polling',
+  'retry-wait',
+  'paused',
+  'hidden',
+  'offline',
+  'blocked',
+];
+const ALL_CODES: readonly DiagnosticCode[] = [
+  'conflicting-sample',
+  'older-sample-ignored',
+  'future-sample-rejected',
+  'future-skew-accepted',
+  'optional-field-dropped',
+  'clock-jump-detected',
+  'late-result-ignored',
+  'fetch-failed',
+];
+
+const MONO = 500_000;
+
+function anchorAt(positionTimeMs: number, wallMs = positionTimeMs): FreshnessAnchor {
+  return {
+    sample: {
+      provider: 'where-the-iss-at',
+      satelliteId: 25544,
+      latitudeDeg: 45.005782935448,
+      longitudeDeg: -18.396323801261,
+      positionTimeMs,
+      receivedAtMs: wallMs,
+    },
+    anchorWallMs: wallMs,
+    anchorMonoMs: MONO,
+    sourceAgeAtReceiptMs: Math.max(0, wallMs - positionTimeMs),
+    futureSkew: false,
+  };
+}
+
+function event(kind: ReplayEventKind, overrides: Partial<ReplayEvent> = {}, seq = 0): ReplayEvent {
+  return {
+    seq,
+    kind,
+    monoMs: MONO,
+    wallMs: T0_MS,
+    transport: 'polling',
+    anchor: null,
+    trail: EMPTY_TRAIL,
+    diagnostic: null,
+    ...overrides,
+  };
+}
+
+describe('Replay event labels', () => {
+  it('every transport, request kind and diagnostic code has a plain-language label', () => {
+    for (const t of ALL_TRANSPORTS) {
+      expect(TRANSPORT_EVENT_LABEL[t]).toMatch(/^[A-Z][^-]*$/);
+      expect(describeReplayEvent(event('transport-changed', { transport: t }))).toBe(
+        TRANSPORT_EVENT_LABEL[t],
+      );
+    }
+    for (const code of ALL_CODES) {
+      const label = DIAGNOSTIC_EVENT_LABEL[code];
+      expect(label.length).toBeGreaterThan(5);
+      expect(label).not.toContain(code);
+      expect(describeReplayEvent(event('diagnostic', { diagnostic: { code, detail: null } }))).toBe(
+        label,
+      );
+    }
+    expect(describeReplayEvent(event('request-started'))).toBe(REQUEST_EVENT_LABEL.started);
+    expect(describeReplayEvent(event('request-ended'))).toBe(REQUEST_EVENT_LABEL.ended);
+    expect(describeReplayEvent(event('sample-accepted'))).toBe('New position received');
+  });
+
+  it('labels are distinct so the list is scannable', () => {
+    const all = [
+      ...Object.values(TRANSPORT_EVENT_LABEL),
+      ...Object.values(DIAGNOSTIC_EVENT_LABEL),
+      ...Object.values(REQUEST_EVENT_LABEL),
+      'New position received',
+    ];
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('fetch failures add a closed, human detail and never show the raw code', () => {
+    const failed = (detail: string | null) =>
+      describeReplayEvent(event('diagnostic', { diagnostic: { code: 'fetch-failed', detail } }));
+    expect(failed('http-503')).toBe('Request failed (HTTP 503)');
+    expect(failed('http-429')).toBe('Request failed (HTTP 429)');
+    expect(failed('timeout')).toBe('Request failed (timed out)');
+    expect(failed('network')).toBe('Request failed (network error)');
+    expect(failed('invalid-json')).toBe('Request failed (response was not valid JSON)');
+    expect(failed('http-other')).toBe('Request failed (HTTP error)');
+    // Unknown or malformed details fall back to the plain label; nothing raw leaks through.
+    expect(failed('<img src=x>')).toBe('Request failed');
+    expect(failed('http-12345')).toBe('Request failed');
+    expect(failed(null)).toBe('Request failed');
+  });
+});
+
+describe('Replay slider aria-valuetext', () => {
+  it('recorded time, data state and age in words', () => {
+    const at = T0_MS + 22_000;
+    const e = event('sample-accepted', {
+      wallMs: at,
+      monoMs: MONO + 22_000,
+      anchor: anchorAt(T0_MS),
+    });
+    const log: ReplayLog = { events: [e], nextSeq: 1 };
+    expect(replayValueText(log, 0)).toBe('14:01:45 UTC, Delayed, position 22 seconds old');
+  });
+
+  it('fresh, just received', () => {
+    const e = event('sample-accepted', { anchor: anchorAt(T0_MS) });
+    expect(replayValueText({ events: [e], nextSeq: 1 }, 0)).toBe(
+      '14:01:23 UTC, Fresh, position received just now',
+    );
+  });
+
+  it('stale after minutes', () => {
+    const e = event('diagnostic', {
+      wallMs: T0_MS + 125_000,
+      monoMs: MONO + 125_000,
+      anchor: anchorAt(T0_MS),
+      diagnostic: { code: 'fetch-failed', detail: 'http-503' },
+    });
+    expect(replayValueText({ events: [e], nextSeq: 1 }, 0)).toBe(
+      '14:03:28 UTC, Stale, position 2 minutes old',
+    );
+  });
+
+  it('no position yet', () => {
+    expect(replayValueText({ events: [event('transport-changed')], nextSeq: 1 }, 0)).toBe(
+      '14:01:23 UTC, Waiting for first position, no position yet',
+    );
+  });
+
+  it('unverified time: age is not stated', () => {
+    const e = event('diagnostic', {
+      wallMs: T0_MS + 3_600_000, // wall jumped an hour; monotonic did not
+      anchor: anchorAt(T0_MS),
+      diagnostic: { code: 'clock-jump-detected', detail: 'wall-mono-mismatch' },
+    });
+    expect(replayValueText({ events: [e], nextSeq: 1 }, 0)).toBe(
+      '15:01:23 UTC, Time could not be verified, position age unknown',
+    );
+  });
+
+  it('out of range index gives an empty string', () => {
+    expect(replayValueText({ events: [], nextSeq: 0 }, 0)).toBe('');
+  });
+
+  it('formatUtcTime is the time part of formatUtc', () => {
+    expect(formatUtcTime(T0_MS)).toBe('14:01:23 UTC');
+  });
+});
+
+describe('Replay connection line', () => {
+  it('reuses the live connection copy for the recorded transport', () => {
+    const log: ReplayLog = {
+      events: [
+        event('transport-changed', { transport: 'paused', anchor: anchorAt(T0_MS) }),
+        event('transport-changed', { transport: 'polling', anchor: anchorAt(T0_MS) }, 1),
+      ],
+      nextSeq: 2,
+    };
+    expect(replayConnection(log, 0)).toBe('Paused');
+    expect(replayConnection(log, 1)).toBe('Connected. Updating every 5 s.');
+  });
+
+  it('a recorded 429 reads as rate limiting, without a live countdown', () => {
+    const log: ReplayLog = {
+      events: [
+        event('diagnostic', {
+          transport: 'polling',
+          diagnostic: { code: 'fetch-failed', detail: 'http-429' },
+        }),
+        event('transport-changed', { transport: 'retry-wait' }, 1),
+      ],
+      nextSeq: 2,
+    };
+    expect(replayConnection(log, 1)).toBe('The source is limiting requests, retrying shortly');
+  });
+
+  it('a failure before the last accepted sample is not carried forward', () => {
+    const log: ReplayLog = {
+      events: [
+        event('diagnostic', { diagnostic: { code: 'fetch-failed', detail: 'http-404' } }),
+        event('sample-accepted', { anchor: anchorAt(T0_MS) }, 1),
+        event('transport-changed', { transport: 'blocked', anchor: anchorAt(T0_MS) }, 2),
+      ],
+      nextSeq: 3,
+    };
+    expect(replayConnection(log, 2)).toBe('Source unavailable. Automatic retry stopped.');
+  });
+});
+
+describe('Replay announcements', () => {
+  it('entering and leaving are announced in plain words', () => {
+    expect(REPLAY_ENTERED_ANNOUNCEMENT).toMatch(/replay/i);
+    expect(REPLAY_ENTERED_ANNOUNCEMENT).toMatch(/not live/i);
+    expect(backToLiveAnnouncement(true)).toBe('Back to live. Live updates resumed.');
+    expect(backToLiveAnnouncement(false)).toBe('Back to live. Updates are still paused.');
+  });
+});

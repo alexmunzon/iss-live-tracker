@@ -12,12 +12,20 @@ import {
   showClockSuspect,
 } from './format';
 import { announcementFor, sameAnnounceState, type AnnounceState } from './announce';
-import { Controls } from './Controls';
+import { Controls, type ReplayEntryProps } from './Controls';
 
 const MERCATOR_LIMIT = 85.0511;
 
 /** Complete text alternative to the map, plus the tracker controls. */
-export function StatusPanel({ view, follow, mapStatus, onRecenter }: StatusPanelProps) {
+export function StatusPanel({
+  view,
+  follow,
+  mapStatus,
+  onRecenter,
+  replayAvailable,
+  onEnterReplay,
+  replayButtonRef,
+}: StatusPanelProps & ReplayEntryProps) {
   const { snapshot, freshness, trailSegments, secondsUntilEligible } = view;
   const headingId = useId();
   const sample = snapshot.anchor?.sample ?? null;
@@ -142,7 +150,14 @@ export function StatusPanel({ view, follow, mapStatus, onRecenter }: StatusPanel
         </p>
       )}
 
-      <Controls view={view} follow={follow} onRecenter={onRecenter} />
+      <Controls
+        view={view}
+        follow={follow}
+        onRecenter={onRecenter}
+        replayAvailable={replayAvailable}
+        onEnterReplay={onEnterReplay}
+        replayButtonRef={replayButtonRef}
+      />
 
       <p className="status-panel__credit">
         Position data:{' '}

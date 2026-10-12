@@ -39,3 +39,14 @@ export function announcementFor(prev: AnnounceState, next: AnnounceState): strin
 
   return parts.length > 0 ? parts.join(' ') : null;
 }
+
+/** Mission Replay: announced once when Replay opens. */
+export const REPLAY_ENTERED_ANNOUNCEMENT =
+  'Replay opened. Showing recorded data from this session, not live.';
+
+/** Mission Replay: announced once on "Back to live". `resumed` is whether live updates restarted. */
+export function backToLiveAnnouncement(resumed: boolean): string {
+  return resumed
+    ? 'Back to live. Live updates resumed.'
+    : 'Back to live. Updates are still paused.';
+}
