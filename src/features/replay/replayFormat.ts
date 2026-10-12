@@ -1,11 +1,6 @@
 // Mission Replay text. Pure: no clocks, no DOM. Reuses the live formatting rules in
 // ../status/format so a replayed instant reads exactly as the live panel read it then.
-import type {
-  DiagnosticCode,
-  FetchFailure,
-  TrackerSnapshot,
-  TransportStatus,
-} from '../../domain/position';
+import type { DiagnosticCode, TransportStatus } from '../../domain/position';
 import { replayStateAt, type ReplayEvent, type ReplayLog } from '../../domain/replay';
 import { DATA_STATE_LABEL, describeConnection, formatAge, formatUtc } from '../status/format';
 
@@ -111,43 +106,14 @@ export function replayValueText(log: ReplayLog, index: number): string {
 }
 
 /**
- * The HTTP failure the live view knew about at log.events[index]: the most recent recorded
- * 'fetch-failed' since the last accepted sample. Only HTTP failures change the connection copy
- * (429 and blocked statuses), so other failures are not reconstructed.
- */
-function lastHttpFailureAt(log: ReplayLog, index: number): FetchFailure | null {
-  for (let i = index; i >= 0; i -= 1) {
-    const e = log.events[i];
-    if (e === undefined || e.kind === 'sample-accepted') return null;
-    if (e.kind === 'diagnostic' && e.diagnostic?.code === 'fetch-failed') {
-      const http = HTTP_DETAIL.exec(e.diagnostic.detail ?? '');
-      return http
-        ? { kind: 'http', status: Number(http[1]), retryAfter: null, serverDateMs: null }
-        : null;
-    }
-  }
-  return null;
-}
-
-/**
- * Connection line at a recorded instant, using the live describeConnection rules.
- * No countdown is shown (secondsUntilEligible is null): a replayed wait has no live deadline.
+ * Connection line at a recorded instant: the live describeConnection rules applied to the
+ * snapshot recorded then, with the countdown as it read at that moment (never a live promise).
  */
 export function replayConnection(log: ReplayLog, index: number): string {
   const state = replayStateAt(log, index);
   if (state === null) return '';
-  const snapshot: TrackerSnapshot = {
-    transport: state.transport,
-    requestInFlight: false,
-    anchor: state.anchor,
-    trail: state.trail,
-    lastFailure: lastHttpFailureAt(log, index),
-    consecutiveFailures: 0,
-    nextEligibleMonoMs: null,
-    retryBlockedBy: null,
-    automaticHold: null,
-    clockSuspect: false,
-    diagnostics: [],
-  };
-  return describeConnection(snapshot, state.freshness, null);
+  const { snapshot, monoMs } = state.event;
+  const next = snapshot.nextEligibleMonoMs;
+  const seconds = next === null ? null : Math.ceil(Math.max(0, next - monoMs) / 1000);
+  return describeConnection(snapshot, state.freshness, seconds);
 }

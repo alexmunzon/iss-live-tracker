@@ -19,6 +19,7 @@ import {
   REPLAY_ENTERED_ANNOUNCEMENT,
   backToLiveAnnouncement,
 } from '../../../src/features/status/announce';
+import { makeSnapshot } from '../../../src/features/status/fixtures';
 import { T0_MS } from '../../fixtures/canonical/index';
 
 const ALL_TRANSPORTS: readonly TransportStatus[] = [
@@ -61,17 +62,21 @@ function anchorAt(positionTimeMs: number, wallMs = positionTimeMs): FreshnessAnc
 }
 
 function event(kind: ReplayEventKind, overrides: Partial<ReplayEvent> = {}, seq = 0): ReplayEvent {
-  return {
+  const base = {
     seq,
     kind,
     monoMs: MONO,
     wallMs: T0_MS,
-    transport: 'polling',
+    transport: 'polling' as TransportStatus,
     anchor: null,
     trail: EMPTY_TRAIL,
     diagnostic: null,
     ...overrides,
   };
+  const snapshot =
+    overrides.snapshot ??
+    makeSnapshot({ transport: base.transport, anchor: base.anchor, trail: base.trail });
+  return { ...base, snapshot };
 }
 
 describe('Replay event labels', () => {
@@ -191,30 +196,59 @@ describe('Replay connection line', () => {
     expect(replayConnection(log, 1)).toBe('Connected. Updating every 5 s.');
   });
 
-  it('a recorded 429 reads as rate limiting, without a live countdown', () => {
+  it('a recorded 429 reads as it did then, with the countdown at that moment', () => {
+    const snapshot = makeSnapshot({
+      transport: 'retry-wait',
+      lastFailure: { kind: 'http', status: 429, retryAfter: null, serverDateMs: null },
+      nextEligibleMonoMs: MONO + 12_000,
+    });
+    const log: ReplayLog = { events: [event('transport-changed', { snapshot })], nextSeq: 1 };
+    expect(replayConnection(log, 0)).toBe('The source is limiting requests, retrying in 12 s');
+  });
+
+  it('a recorded time-unverified hold never reads as an automatic retry (R2)', () => {
+    const lastFailure = {
+      kind: 'http',
+      status: 429,
+      retryAfter: { kind: 'date', epochMs: T0_MS + 60_000 },
+      serverDateMs: null,
+    } as const;
+    const held = makeSnapshot({
+      transport: 'retry-wait',
+      lastFailure,
+      automaticHold: 'time-unverified',
+      retryBlockedBy: 'time-unverified',
+      nextEligibleMonoMs: MONO + 60_000,
+    });
+    const expired = makeSnapshot({
+      transport: 'retry-wait',
+      lastFailure,
+      automaticHold: 'time-unverified',
+      retryBlockedBy: null,
+      nextEligibleMonoMs: null,
+    });
     const log: ReplayLog = {
       events: [
-        event('diagnostic', {
-          transport: 'polling',
-          diagnostic: { code: 'fetch-failed', detail: 'http-429' },
-        }),
-        event('transport-changed', { transport: 'retry-wait' }, 1),
+        event('transport-changed', { snapshot: held }),
+        event('request-ended', { snapshot: expired }, 1),
       ],
       nextSeq: 2,
     };
-    expect(replayConnection(log, 1)).toBe('The source is limiting requests, retrying shortly');
+    expect(replayConnection(log, 0)).toMatch(/Automatic retry paused/);
+    expect(replayConnection(log, 1)).toMatch(/automatic updates are paused/);
+    for (const i of [0, 1]) expect(replayConnection(log, i)).not.toMatch(/retrying/i);
   });
 
-  it('a failure before the last accepted sample is not carried forward', () => {
-    const log: ReplayLog = {
-      events: [
-        event('diagnostic', { diagnostic: { code: 'fetch-failed', detail: 'http-404' } }),
-        event('sample-accepted', { anchor: anchorAt(T0_MS) }, 1),
-        event('transport-changed', { transport: 'blocked', anchor: anchorAt(T0_MS) }, 2),
-      ],
-      nextSeq: 3,
-    };
-    expect(replayConnection(log, 2)).toBe('Source unavailable. Automatic retry stopped.');
+  it('a recorded blocked status names the HTTP status it had then', () => {
+    const snapshot = makeSnapshot({
+      transport: 'blocked',
+      anchor: anchorAt(T0_MS),
+      lastFailure: { kind: 'http', status: 404, retryAfter: null, serverDateMs: null },
+    });
+    const log: ReplayLog = { events: [event('transport-changed', { snapshot })], nextSeq: 1 };
+    expect(replayConnection(log, 0)).toBe(
+      'Source unavailable (HTTP 404). Automatic retry stopped.',
+    );
   });
 });
 

@@ -20,6 +20,8 @@ import {
   replayStateAt,
   type ReplayLog,
 } from '../../src/domain/replay';
+import { describeConnection } from '../../src/features/status/format';
+import { replayConnection } from '../../src/features/replay/replayFormat';
 import { payloadAt } from '../fixtures/adversarial/payloads';
 import { T0_MS } from '../fixtures/canonical/index';
 import {
@@ -50,6 +52,8 @@ interface LiveCapture {
   readonly anchor: FreshnessAnchor | null;
   readonly trail: TrailState;
   readonly freshness: FreshnessView;
+  /** The connection line exactly as useTracker would render it at this commit. */
+  readonly connection: string;
 }
 
 interface Recorder {
@@ -80,11 +84,16 @@ function setup(): { s: PollingScheduler; rec: Recorder } {
   s.subscribe(() => {
     const next = s.getSnapshot();
     // What the live view shows at this commit.
+    const freshness = computeFreshness(next.anchor, env.clock);
+    const due = next.nextEligibleMonoMs;
+    const seconds =
+      due === null ? null : Math.ceil(Math.max(0, due - env.clock.monotonicNowMs()) / 1000);
     const live: LiveCapture = {
       transport: next.transport,
       anchor: next.anchor,
       trail: next.trail,
-      freshness: computeFreshness(next.anchor, env.clock),
+      freshness,
+      connection: describeConnection(next, freshness, seconds),
     };
     history.push(live);
     const firstSeq = log.nextSeq;
@@ -109,6 +118,7 @@ function setup(): { s: PollingScheduler; rec: Recorder } {
         expect(state.anchor).toBe(live.anchor);
         expect(state.trail).toBe(live.trail);
         expect(state.transport).toBe(live.transport);
+        expect(replayConnection(log, i)).toBe(live.connection);
       });
     },
   };

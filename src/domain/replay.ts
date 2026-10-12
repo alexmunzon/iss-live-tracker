@@ -39,6 +39,8 @@ export interface ReplayEvent {
   readonly transport: TransportStatus;
   readonly anchor: FreshnessAnchor | null;
   readonly trail: TrailState;
+  /** The complete, immutable scheduler snapshot right after the change (shared, not copied). */
+  readonly snapshot: TrackerSnapshot;
   /** Only for kind 'diagnostic'. */
   readonly diagnostic: { readonly code: DiagnosticCode; readonly detail: string | null } | null;
 }
@@ -109,6 +111,7 @@ export function recordSnapshot(
       transport: next.transport,
       anchor: next.anchor,
       trail: next.trail,
+      snapshot: next,
       diagnostic,
     });
     seq += 1;
