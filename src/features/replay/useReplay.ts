@@ -30,6 +30,8 @@ export function useReplay(view: TrackerView): ReplayController {
   const [announcement, setAnnouncement] = useState('');
   const replayButtonRef = useRef<HTMLButtonElement | null>(null);
   const returnFocusRef = useRef(false);
+  /** Set by exit(); the next render reads the resumed live snapshot and announces from it. */
+  const [returning, setReturning] = useState<{ readonly wasPaused: boolean } | null>(null);
 
   // After "Back to live" the live panel (and its Replay button) mounts again; focus it then.
   useEffect(() => {
@@ -39,6 +41,12 @@ export function useReplay(view: TrackerView): ReplayController {
   }, [session]);
 
   const { replayLog, snapshot, actions } = view;
+  if (returning !== null && session === null) {
+    // Adjusting state during render (React's documented pattern): this render already has the
+    // snapshot from after resume(), so the announcement describes what is really happening.
+    setReturning(null);
+    setAnnouncement(backToLiveAnnouncement(returning.wasPaused, snapshot));
+  }
   const canEnter = replayLog.events.length > 0;
 
   return {
@@ -68,7 +76,7 @@ export function useReplay(view: TrackerView): ReplayController {
       if (!session.wasPaused) actions.resume();
       setSession(null);
       returnFocusRef.current = true;
-      setAnnouncement(backToLiveAnnouncement(!session.wasPaused));
+      setReturning({ wasPaused: session.wasPaused });
     },
   };
 }

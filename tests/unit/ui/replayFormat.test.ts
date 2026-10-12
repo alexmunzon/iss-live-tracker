@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   DiagnosticCode,
   FreshnessAnchor,
+  TrackerSnapshot,
   TransportStatus,
 } from '../../../src/domain/position';
 import type { ReplayEvent, ReplayEventKind, ReplayLog } from '../../../src/domain/replay';
@@ -256,7 +257,29 @@ describe('Replay announcements', () => {
   it('entering and leaving are announced in plain words', () => {
     expect(REPLAY_ENTERED_ANNOUNCEMENT).toMatch(/replay/i);
     expect(REPLAY_ENTERED_ANNOUNCEMENT).toMatch(/not live/i);
-    expect(backToLiveAnnouncement(true)).toBe('Back to live. Live updates resumed.');
-    expect(backToLiveAnnouncement(false)).toBe('Back to live. Updates are still paused.');
+    const live = (overrides: Partial<TrackerSnapshot>) => makeSnapshot(overrides);
+    expect(backToLiveAnnouncement(true, live({ transport: 'paused' }))).toBe(
+      'Back to live. Updates are still paused.',
+    );
+    expect(backToLiveAnnouncement(false, live({ transport: 'polling' }))).toBe(
+      'Back to live. Live updates resumed.',
+    );
+    // Resumed, but something else still holds updates: say so, never "resumed" (R2).
+    const held: Partial<TrackerSnapshot>[] = [
+      { transport: 'hidden' },
+      { transport: 'offline' },
+      { transport: 'blocked' },
+      { transport: 'retry-wait' },
+      { transport: 'retry-wait', automaticHold: 'time-unverified' },
+    ];
+    for (const overrides of held) {
+      expect(backToLiveAnnouncement(false, live(overrides))).not.toMatch(/resumed\./);
+    }
+    expect(
+      backToLiveAnnouncement(
+        false,
+        live({ transport: 'retry-wait', automaticHold: 'time-unverified' }),
+      ),
+    ).toMatch(/use Retry/);
   });
 });

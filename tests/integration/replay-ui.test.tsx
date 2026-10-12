@@ -198,4 +198,23 @@ describe('Mission Replay UI (integration)', () => {
     await advance(30_000);
     expect(fake.calls).toHaveLength(before);
   });
+
+  it('Back to live while offline: announces the real state, never "resumed"', async () => {
+    await recordSession();
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    const before = fake.calls.length;
+    fireEvent.click(replayButton());
+    await advance(10_000);
+    fireEvent.click(backToLive());
+
+    expect(text('connection')).toMatch(/^Offline/);
+    expect(liveText()).toMatch(
+      /Back to live\. Offline: updates resume when the connection returns\./,
+    );
+    expect(liveText()).not.toMatch(/Live updates resumed/);
+    await advance(30_000);
+    expect(fake.calls).toHaveLength(before);
+  });
 });
