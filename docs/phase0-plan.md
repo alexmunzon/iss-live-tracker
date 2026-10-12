@@ -1,6 +1,8 @@
 # ISS Live Tracker — Phase 0 plan (G0)
 
-Status: **PLANNING. No application code written.** Waiting for owner approval (G0).
+> **Historical document (as of 2026-10-11, before G0).** Statuses below describe the plan at that time. The current release state is in [`docs/agent-state.md` › Current status](agent-state.md#current-status).
+
+Status at the time: **PLANNING. No application code written.** Waiting for owner approval (G0).
 Prepared: 2026-10-11 by the coordinator session.
 
 ## 1. Environment (recorded, not assumed)
@@ -111,7 +113,7 @@ G0 owner approves this plan → git init + scaffold + **browser spike from `http
 | HTTPS / DNS takeover                        | HSTS on host; remove DNS records if the site is retired                     | Deployment review |
 | OSM compromise or blocking                  | Tiles are images only (no script); map-unavailable state keeps text working | A13               |
 
-## 8. Acceptance ledger (all NOT RUN)
+## 8. Acceptance ledger (all NOT RUN at planning time; results in `docs/qa-evidence.md`)
 
 A01–A20 exactly as defined in the coordinator prompt. A18 is excluded unless the trail is approved. A20 has two parts: local-origin browser check (after G0) and real-origin check (only after an approved deployment).
 

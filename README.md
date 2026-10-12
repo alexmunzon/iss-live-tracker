@@ -21,12 +21,12 @@ A small static web app (React, TypeScript, Leaflet) that polls a public ISS posi
 
 ## Proof it works
 
-| Layer              | What runs                                                                                                                                                                                            | Where                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Unit + integration | 445 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                                                          | `tests/unit`, `tests/integration`            |
-| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (29 scenarios × 3 browsers): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
-| CI                 | Every push and pull request runs all of the above. No secrets; the ISS API and map tiles are intercepted, so CI never sends traffic to real providers                                                | `.github/workflows/ci.yml`                   |
-| Evidence           | Each acceptance criterion (A01–A20) mapped to its tests, with what is still manual                                                                                                                   | [`docs/qa-evidence.md`](docs/qa-evidence.md) |
+| Layer              | What runs                                                                                                                                                                          | Where                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Unit + integration | 14 files / 449 tests (Vitest, fake clocks): validation, freshness, scheduler, map lifecycle, App flows                                                                             | `tests/unit`, `tests/integration`            |
+| Browser E2E        | Production build with real security headers, in **Chromium, Firefox and WebKit** (102/102): first sample, outage, stale, recovery, dateline crossing, layouts, axe, CSP, injection | `tests/e2e`                                  |
+| CI                 | Every push and pull request runs all of the above. No secrets; the ISS API and map tiles are intercepted, so CI never sends traffic to real providers                              | `.github/workflows/ci.yml`                   |
+| Evidence           | Each acceptance criterion (A01–A20) mapped to its tests, with what is still manual                                                                                                 | [`docs/qa-evidence.md`](docs/qa-evidence.md) |
 
 Bundle: about 123 kB gzipped JavaScript (budget 250 kB). Runtime dependencies: React, React DOM and Leaflet only.
 
@@ -42,7 +42,7 @@ The commit history shows those stages (`G1` contracts → `DATA-1`, `UI-1`, `QA-
 
 ## Engineering details
 
-Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. Current status: **Deployed and verified** on Vercel (see `docs/qa-evidence.md` for the live-site checks). Every merge to `main` redeploys automatically.
+Status labels this project uses: **Implemented** (gates incomplete) → **Locally verified** → **Deployment ready** → **Deployed and verified**. Current status: **Deployed and verified** on Vercel. The verified production commit, test results and the manual checks still NOT RUN (such as a real screen-reader listening pass) are in one place: [current status](docs/agent-state.md#current-status). Every merge to `main` redeploys automatically.
 
 ### Setup
 
